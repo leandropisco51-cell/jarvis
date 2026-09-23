@@ -103,7 +103,7 @@ def enrich_prompt_with_live_data(prompt: str) -> Tuple[str, Optional[str]]:
                 f"- Coordenadas: Latitude {geo['lat']}, Longitude {geo['lon']}\n"
                 f"- Cidade/Estado/País: {geo['city']}, {geo['state']} - {geo['country']}\n"
                 f"- Link no Mapa: {geo['maps_url']}\n\n"
-                f"INSTRUÇÃO AO JARVIS: Informe ao Senhor com precisão onde fica o local solicitado, descreva a região e forneça as coordenadas e o link do mapa de forma refinada e detalhada.\n"
+                f"INSTRUÇÃO AO JARVIS: Responda ao Senhor de forma curta (máximo 2 a 3 frases). Informe o endereço exato com um toque de humor sarcástico elegante sobre o trânsito ou seu senso de direção.\n"
             )
             return prompt + context, "📍 Localizando coordenadas e endereço via satélite..."
         else:
@@ -114,7 +114,7 @@ def enrich_prompt_with_live_data(prompt: str) -> Tuple[str, Optional[str]]:
                 context = (
                     f"\n[DADOS DE LOCALIZAÇÃO OBTIDOS EM TEMPO REAL DA INTERNET]:\n"
                     f"{web_text}\n\n"
-                    f"INSTRUÇÃO AO JARVIS: Informe ao Senhor com precisão onde fica o local com base nos dados reais acima, incluindo rua, bairro, cidade e referências de forma detalhada.\n"
+                    f"INSTRUÇÃO AO JARVIS: Responda de forma curta e rápida (máximo 2 a 3 frases). Diga o endereço e a cidade com uma pitada de ironia inteligente.\n"
                 )
                 return prompt + context, "📍 Consultando localização e endereço na internet..."
 
@@ -122,11 +122,11 @@ def enrich_prompt_with_live_data(prompt: str) -> Tuple[str, Optional[str]]:
     if any(kw in prompt_lower for kw in ["notícia", "noticias", "notícia de", "notícias de", "acontecimentos recentes", "últimas notícias", "hoje no brasil"]):
         news = search_news(prompt, max_results=3)
         if news:
-            news_text = "\n".join([f"- **{n['title']}** ({n.get('source', '')}): {n['snippet']} (Link: {n.get('url', '')})" for n in news])
+            news_text = "\n".join([f"- **{n['title']}** ({n.get('source', '')}): {n['snippet']}" for n in news])
             context = (
                 f"\n[NOTÍCIAS ATUALIZADAS COLETADAS EM TEMPO REAL DA INTERNET]:\n"
                 f"{news_text}\n\n"
-                f"INSTRUÇÃO AO JARVIS: Apresente ao Senhor um resumo detalhado, completo e sofisticado das notícias acima, organizadas em tópicos claros e informativos.\n"
+                f"INSTRUÇÃO AO JARVIS: Resuma em no máximo 2 a 3 frases rápidas e sarcásticas as notícias acima, com humor irônico elegante sobre como a humanidade anda agitada.\n"
             )
             return prompt + context, "📰 Coletando notícias em tempo real na rede..."
 
@@ -134,11 +134,11 @@ def enrich_prompt_with_live_data(prompt: str) -> Tuple[str, Optional[str]]:
     if any(kw in prompt_lower for kw in ["pesquise", "procure", "busque", "quem é", "o que é", "qual o", "quanto custa", "como funciona", "resultado"]):
         web_res = search_web(prompt, max_results=3)
         if web_res:
-            web_text = "\n".join([f"- **{w['title']}**: {w['snippet']} (Fonte: {w['href']})" for w in web_res])
+            web_text = "\n".join([f"- **{w['title']}**: {w['snippet']}" for w in web_res])
             context = (
                 f"\n[DADOS ATUALIZADOS COLETADOS EM TEMPO REAL DA WEB]:\n"
                 f"{web_text}\n\n"
-                f"INSTRUÇÃO AO JARVIS: Elabore uma resposta rica, aprofundada, didática e muito bem estruturada para o Senhor com base nas informações coletadas acima.\n"
+                f"INSTRUÇÃO AO JARVIS: Responda ao Senhor em no máximo 2 a 3 frases diretas, inteligentes e com um humor refinado e espirituoso, sem textões.\n"
             )
             return prompt + context, "🔍 Realizando varredura na internet em tempo real..."
 
