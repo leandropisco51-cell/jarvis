@@ -202,9 +202,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (dataStr === '[DONE]') break;
             try {
               const parsed = JSON.parse(dataStr);
+              if (parsed.status) {
+                if (parsed.state) reactor.setState(parsed.state);
+                jarvisBubble.innerHTML = `<span style="color: #ffb700; font-family: var(--font-mono); font-size: 0.85rem;">⚡ [AUTO-EVOLUÇÃO]: ${parsed.status}</span><span class="cursor-blink"></span>`;
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+              }
               if (parsed.token) {
                 fullResponse += parsed.token;
-                // Renderiza texto na bolha
                 jarvisBubble.innerHTML = fullResponse.replace(/\n/g, '<br>') + '<span class="cursor-blink"></span>';
                 chatMessages.scrollTop = chatMessages.scrollHeight;
               }

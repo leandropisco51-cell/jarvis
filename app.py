@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from core.llm_client import LLMClient
 from core.config import DEFAULT_MODEL
 from core.actions import get_system_stats, get_system_time
+from core.coder_agent import CoderAgent
 
 # Diretórios base
 BASE_DIR = Path(__file__).resolve().parent
@@ -92,12 +93,22 @@ async def chat_stream_endpoint(req: ChatRequest):
 
     def event_generator() -> Generator[str, None, None]:
         try:
-            for token in llm_client.chat_stream(req.message):
-                data = json.dumps({"token": token})
-                yield f"data: {data}\n\n"
-            yield "data: [DONE]\n\n"
+            if CoderAgent.is_coding_request(req.message):
+                for event in CoderAgent.process_instruction(req.message, llm_client):
+                    if event["type"] == "status":
+                        yield f"data: {json.dumps({'status': event['data'], 'state': 'CODING'})}\n\n"
+                    elif event["type"] == "token":
+                        yield f"data: {json.dumps({'token': event['data']})}\n\n"
+                    elif event["type"] == "done":
+                        yield "data: [DONE]\n\n"
+                        break
+            else:
+                for token in llm_client.chat_stream(req.message):
+                    data = json.dumps({"token": token})
+                    yield f"data: {data}\n\n"
+                yield "data: [DONE]\n\n"
         except Exception as e:
-            err_data = json.dumps({"token": f"\n[Erro na geração]: {str(e)}"})
+            err_data = json.dumps({"token": f"\n[Erro na execução]: {str(e)}"})
             yield f"data: {err_data}\n\n"
             yield "data: [DONE]\n\n"
 

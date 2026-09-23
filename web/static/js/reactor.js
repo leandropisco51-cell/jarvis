@@ -63,10 +63,12 @@ class ArcReactor {
         LISTENING: 'OUVINDO COMANDOS...',
         THINKING: 'PROCESSANDO RESPOSTA...',
         SPEAKING: 'TRANSMITINDO VOZ...',
+        CODING: 'AUTO-EVOLUÇÃO // CODIFICANDO...',
       };
       label.textContent = stateMap[newState] || newState;
-      label.style.borderColor = newState === 'LISTENING' ? '#ff3366' : '#00f0ff';
-      label.style.color = newState === 'LISTENING' ? '#ff3366' : '#00f0ff';
+      const stateColor = newState === 'LISTENING' ? '#ff3366' : (newState === 'CODING' ? '#ffb700' : '#00f0ff');
+      label.style.borderColor = stateColor;
+      label.style.color = stateColor;
     }
   }
 
@@ -92,6 +94,10 @@ class ArcReactor {
       speedMult = 1.8;
       mainColor = '#00ffaa';
       secColor = '#00f0ff';
+    } else if (this.state === 'CODING') {
+      speedMult = 2.5;
+      mainColor = '#ffb700';
+      secColor = '#ff5500';
     }
 
     this.angle1 += 0.006 * speedMult;
