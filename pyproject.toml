@@ -1,0 +1,14 @@
+[project]
+name = "jarvis"
+version = "0.1.0"
+description = "Assistente Pessoal Jarvis integrado à LLM local (Ollama)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31.0",
+    "rich>=13.7.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
