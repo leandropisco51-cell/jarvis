@@ -24,14 +24,21 @@ class ArcReactor {
   resize() {
     const rect = this.canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    this.canvas.width = rect.width * dpr;
-    this.canvas.height = rect.height * dpr;
+    // Garante que o canvas sempre seja perfeitamente simétrico e circular
+    const size = Math.floor(Math.min(rect.width, rect.height)) || 380;
+    this.canvas.width = size * dpr;
+    this.canvas.height = size * dpr;
+    if (this.ctx.resetTransform) {
+      this.ctx.resetTransform();
+    } else {
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
     this.ctx.scale(dpr, dpr);
-    this.width = rect.width;
-    this.height = rect.height;
-    this.centerX = this.width / 2;
-    this.centerY = this.height / 2;
-    this.baseRadius = Math.min(this.width, this.height) * 0.38;
+    this.width = size;
+    this.height = size;
+    this.centerX = size / 2;
+    this.centerY = size / 2;
+    this.baseRadius = size * 0.40;
   }
 
   initParticles() {

@@ -146,10 +146,14 @@ body::after {
 .hud-main {
   flex: 1;
   display: grid;
-  grid-template-columns: 340px 1fr 420px;
+  grid-template-columns: 320px 1fr 420px;
+  grid-template-rows: 100%;
   gap: 20px;
-  padding: 20px;
+  padding: 16px 24px;
   height: calc(100vh - 60px - 70px);
+  max-height: calc(100vh - 60px - 70px);
+  min-height: 0;
+  overflow: hidden;
   position: relative;
   z-index: 5;
 }
@@ -164,6 +168,10 @@ body::after {
   flex-direction: column;
   position: relative;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .hud-panel::before {
@@ -271,47 +279,79 @@ body::after {
   margin-top: 4px;
 }
 
-/* PAINEL CENTRAL: REATOR ARC */
+/* PAINEL CENTRAL: REATOR ARC FIXO E CENTRALIZADO */
 .reactor-center {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   position: relative;
+  height: 100%;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.reactor-center::before,
+.reactor-center::after {
+  display: none !important;
+}
+
+.reactor-box {
+  position: relative;
+  width: min(440px, 92%);
+  max-width: 440px;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 #reactorCanvas {
   width: 100%;
-  max-width: 480px;
-  height: 480px;
+  height: 100%;
+  display: block;
   cursor: pointer;
 }
 
 .reactor-state-text {
   position: absolute;
-  bottom: 30px;
+  bottom: 0px;
+  left: 50%;
+  transform: translateX(-50%);
   text-align: center;
   font-family: var(--font-hud);
-  letter-spacing: 4px;
-  font-size: 0.95rem;
+  letter-spacing: 3px;
+  font-size: 0.85rem;
   color: var(--cyan-glow);
   text-shadow: 0 0 10px var(--cyan-glow);
-  background: rgba(3, 10, 20, 0.8);
+  background: rgba(3, 10, 20, 0.9);
   padding: 6px 18px;
   border: 1px solid var(--cyan-dim);
   border-radius: 20px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 2;
 }
 
 /* PAINEL DIREITO: CONVERSA E TERMINAL */
 .chat-container {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  height: calc(100% - 45px);
+  min-height: 0;
+  overflow: hidden;
 }
 
 .chat-messages {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px;
   display: flex;
   flex-direction: column;
