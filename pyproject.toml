@@ -1,12 +1,14 @@
 [project]
 name = "jarvis"
-version = "0.1.0"
-description = "Assistente Pessoal Jarvis integrado à LLM local (Ollama)"
+version = "0.2.0"
+description = "Assistente Pessoal Jarvis integrado à LLM local (Ollama) com interface HUD holográfica e voz"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "requests>=2.31.0",
     "rich>=13.7.0",
+    "fastapi>=0.110.0",
+    "uvicorn>=0.28.0",
 ]
 
 [build-system]

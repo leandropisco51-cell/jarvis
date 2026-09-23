@@ -2,17 +2,20 @@
 
 > **Just A Rather Very Intelligent System**  
 > Assistente pessoal em Python integrado com modelos de linguagem locais via [Ollama](https://ollama.ai/), sem custos de API, 100% privado e offline.
+> Equipado com **Interface Web Holográfica (HUD)** estilo Stark Industries (Homem de Ferro), **Reconhecimento de Voz (STT)** e **Síntese de Voz (TTS)**.
 
 ---
 
 ## ⚡ Recursos
 
-- **LLM Local e Gratuita:** Integração nativa com modelos da família `llama3.2` (`1b` para velocidade extrema e `3b` para maior raciocínio).
-- **Interface Terminal HUD:** Visual futurista estilizado em terminal utilizando a biblioteca `rich`.
-- **Streaming de Resposta:** Respostas geradas token por token em tempo real.
-- **Memória de Conversa:** Mantém histórico contextual durante a sessão de conversa.
-- **Comandos de Sistema:** Verificação de telemetria de CPU/RAM, data/hora e abertura de sites no navegador.
-- **Troca Dinâmica de Modelos:** Alterne entre modelos locais em tempo de execução com o comando `/modelo`.
+- **Interface Web Holográfica:** HUD tático com tema escuro, gradientes neon ciano, glassmorphism e animação em Canvas do **Reator Arc Central**.
+- **Comandos por Voz:** Fale diretamente no microfone (Web Speech API em português `pt-BR`) para comandar o Jarvis sem precisar digitar.
+- **Resposta por Voz:** O Jarvis sintetiza e responde por voz em áudio com tom refinado e articulado.
+- **Reator Arc Reativo:** O reator central muda de estado e pulsa com ondas sonoras conforme o Jarvis está *Standby*, *Ouvindo*, *Pensando* ou *Falando*.
+- **Telemetria de Sistema em Tempo Real:** Monitoramento ao vivo do consumo de memória RAM, núcleos de CPU e latência.
+- **Streaming Instantâneo de Resposta:** Tokens transmitidos em tempo real via Server-Sent Events (SSE).
+- **Troca Dinâmica de Modelos:** Alterne entre `llama3.2:1b` (ultra rápido) e `llama3.2:latest` (3.2B para raciocínio complexo) diretamente pela interface ou pelo terminal.
+- **Interface Terminal HUD Alternativa:** Para quem prefere usar diretamente via prompt de comando (`jarvis.py`).
 
 ---
 
@@ -20,16 +23,26 @@
 
 ```
 jarvis/
-├── jarvis.py             # Script principal de execução e interface
+├── app.py                      # Servidor FastAPI com endpoints REST e SSE Streaming
+├── jarvis.py                   # CLI do terminal + inicializador rápido
 ├── core/
 │   ├── __init__.py
-│   ├── config.py         # Configurações de modelo, Ollama e personalidade
-│   ├── llm_client.py     # Cliente HTTP para chat e streaming com Ollama
-│   └── actions.py        # Ações locais (telemetria, data/hora, navegador)
-├── pyproject.toml        # Metadados e dependências do projeto
-├── requirements.txt      # Dependências simples (requests, rich)
-├── .gitignore            # Arquivos ignorados pelo Git
-└── README.md             # Esta documentação
+│   ├── config.py               # Configurações de modelo, Ollama e personalidade
+│   ├── llm_client.py           # Cliente HTTP para chat e streaming com Ollama
+│   └── actions.py              # Ações locais (telemetria, data/hora, navegador)
+├── web/
+│   ├── templates/
+│   │   └── index.html          # Interface HUD tática holográfica
+│   └── static/
+│       ├── css/
+│       │   └── hud.css         # Efeitos de neon, glassmorphism e animações HUD
+│       └── js/
+│           ├── reactor.js      # Gráficos Canvas 2D do Reator Arc e ondas sonoras
+│           └── app.js          # Controle da interface, microfone e voz do Jarvis
+├── pyproject.toml              # Metadados e dependências (uv/pip)
+├── requirements.txt            # Dependências (fastapi, uvicorn, requests, rich)
+├── .gitignore                  # Arquivos ignorados pelo Git
+└── README.md                   # Esta documentação
 ```
 
 ---
@@ -45,50 +58,51 @@ jarvis/
    - O serviço do Ollama deve estar rodando (`ollama serve`).
 
 2. **Python / UV**:
-   - O projeto pode ser gerenciado com `uv` (recomendado) ou com Python padrão.
+   - O projeto é gerenciado com `uv` (já configurado) ou Python padrão.
 
 ---
 
-## 🚀 Como Executar
+## 🚀 Como Iniciar
 
-### Opção 1: Usando `uv` (Recomendado)
+### 1. Iniciar a Interface Web Holográfica (Recomendado)
 
-O `uv` baixa o Python e instala os pacotes automaticamente em segundos:
+Inicie o servidor web e abra no navegador:
 
-```bash
-# Criar o ambiente virtual e sincronizar dependências
-uv venv
-uv pip install -r requirements.txt
+```powershell
+uv run python app.py
+```
 
-# Executar o Jarvis
+Acesse no seu navegador: **`http://127.0.0.1:8000`**
+
+- Clique no botão do **Microfone** para falar com o Jarvis.
+- O Jarvis falará a resposta em áudio e digitará em tempo real.
+- Você pode ligar/desligar o áudio do Jarvis a qualquer momento no botão **VOZ DO JARVIS: ON/OFF**.
+
+---
+
+### 2. Iniciar pelo Terminal HUD
+
+Se preferir o terminal tático:
+
+```powershell
 uv run python jarvis.py
 ```
 
-### Opção 2: Usando `python` padrão
-
-```bash
-# Criar ambiente virtual
-python -m venv .venv
-
-# Ativar ambiente virtual (Windows PowerShell)
-.venv\Scripts\Activate.ps1
-
-# Instalar dependências
-pip install -r requirements.txt
-
-# Iniciar o Jarvis
-python jarvis.py
-```
+- Digite `/ajuda` para ver todos os comandos.
+- Digite `/web` para abrir a interface holográfica no navegador.
+- Digite `/status` para inspecionar a telemetria do computador.
+- Digite `/modelo` para alternar entre os modelos locais instalados.
 
 ---
 
-## 🎮 Comandos Disponíveis no Terminal
+## 🎮 Comandos Disponíveis
 
 | Comando | Descrição |
 | :--- | :--- |
+| `/web` | Inicia e abre a interface holográfica no navegador |
 | `/ajuda` | Mostra todos os comandos do sistema |
 | `/status` | Exibe uso de CPU, memória RAM e status da conexão com Ollama |
-| `/modelo` | Lista os modelos locais ou altera o modelo ativo (ex: `/modelo llama3.2:latest`) |
+| `/modelo [nome]` | Lista os modelos locais ou altera o modelo ativo |
 | `/hora` | Informa a data e horário atual |
 | `/abrir <termo>` | Abre pesquisa no Google ou URL no navegador padrão |
 | `/limpar` | Reinicia a memória de conversa do Jarvis |

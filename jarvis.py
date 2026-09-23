@@ -72,6 +72,7 @@ def show_help():
     table.add_row("/ajuda", "Exibe esta lista de comandos")
     table.add_row("/status", "Exibe telemetria de hardware e status da LLM")
     table.add_row("/modelo [nome]", "Lista modelos locais ou alterna o modelo ativo")
+    table.add_row("/web", "Inicia a interface Web Holográfica no navegador")
     table.add_row("/hora", "Informa o dia e horário atual")
     table.add_row("/abrir <url/busca>", "Abre uma pesquisa ou site no navegador")
     table.add_row("/limpar", "Limpa o histórico de memória da conversa atual")
@@ -108,6 +109,13 @@ def show_status(client: LLMClient):
 
 def main():
     """Loop principal de execução do Jarvis."""
+    if "--web" in sys.argv:
+        console.print("\n[bold cyan]Jarvis:[/bold cyan] Inicializando interface Web Holográfica em http://127.0.0.1:8000 ...")
+        open_browser("http://127.0.0.1:8000")
+        from app import start_server
+        start_server()
+        return
+
     client = LLMClient(model=DEFAULT_MODEL)
     is_online = client.check_health()
 
@@ -135,6 +143,13 @@ def main():
             elif user_input.lower() == "/ajuda":
                 show_help()
                 continue
+
+            elif user_input.lower() == "/web":
+                console.print("\n[bold cyan]Jarvis:[/bold cyan] Abrindo interface Web Holográfica em http://127.0.0.1:8000 ...")
+                open_browser("http://127.0.0.1:8000")
+                from app import start_server
+                start_server()
+                break
 
             elif user_input.lower() == "/status":
                 show_status(client)

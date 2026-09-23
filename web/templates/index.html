@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>J.A.R.V.I.S. // Stark Industries Tactical HUD</title>
+  <link rel="stylesheet" href="/static/css/hud.css">
+</head>
+<body>
+
+  <!-- CABEÇALHO TÁTICO -->
+  <header class="hud-header">
+    <div class="hud-logo">
+      <div class="logo-symbol">J.A.R.V.I.S.</div>
+      <div class="logo-sub">STARK INDUSTRIES // PROTOCOLO MARK VII</div>
+    </div>
+
+    <div class="hud-system-status">
+      <div class="status-badge">
+        <div id="ollamaDot" class="status-dot"></div>
+        <span id="ollamaText">VERIFICANDO OLLAMA...</span>
+      </div>
+
+      <div class="model-selector">
+        <select id="modelSelect" title="Alternar modelo LLM local">
+          <option value="llama3.2:1b">llama3.2:1b</option>
+          <option value="llama3.2:latest">llama3.2:latest</option>
+        </select>
+      </div>
+
+      <div class="status-badge" style="border-color: rgba(255,183,0,0.3); color: #ffb700;">
+        <span id="hudTime">--/--/---- --:--:--</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- CORPO PRINCIPAL DO HUD -->
+  <main class="hud-main">
+    
+    <!-- PAINEL ESQUERDO: TELEMETRIA -->
+    <aside class="hud-panel">
+      <div class="panel-header">
+        <span>TELEMETRIA DE SISTEMA</span>
+        <span style="font-size: 0.7rem; color: var(--green);">[ATIVO]</span>
+      </div>
+      <div class="telemetry-content">
+        
+        <!-- Memória RAM -->
+        <div class="gauge-block">
+          <div class="gauge-title">
+            <span>MEMÓRIA RAM</span>
+            <span id="ramPercent" class="gauge-value">0%</span>
+          </div>
+          <div class="gauge-bar-track">
+            <div id="ramBar" class="gauge-bar-fill"></div>
+          </div>
+          <div id="ramDetail" style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-dim); margin-top: 6px;">
+            0 GB / 0 GB
+          </div>
+        </div>
+
+        <!-- Estatísticas da CPU -->
+        <div class="quick-stats">
+          <div class="stat-box">
+            <div class="stat-label">PROCESSADOR</div>
+            <div id="cpuCores" class="stat-num">--</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">SEGURANÇA</div>
+            <div class="stat-num" style="color: var(--green);">NÍVEL 5</div>
+          </div>
+        </div>
+
+        <div class="gauge-block">
+          <div class="gauge-title">
+            <span>SISTEMA OPERACIONAL</span>
+          </div>
+          <div id="osName" style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-primary);">
+            Detectando...
+          </div>
+        </div>
+
+        <!-- Diagnóstico Holográfico -->
+        <div class="gauge-block" style="border-left: 2px solid var(--cyan-glow);">
+          <div style="font-family: var(--font-hud); font-size: 0.75rem; color: var(--cyan-glow); margin-bottom: 6px;">
+            DIRETRIZES ATIVAS
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-dim); line-height: 1.5;">
+            • Reconhecimento de Voz: PT-BR<br>
+            • Síntese Neural: Ativa<br>
+            • Conexão Neural: Local (100% Offline)<br>
+            • Privacidade: Criptografia Local
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- PAINEL CENTRAL: REATOR ARC -->
+    <section class="hud-panel reactor-center" style="background: transparent; border: none; box-shadow: none;">
+      <canvas id="reactorCanvas"></canvas>
+      <div id="reactorStateText" class="reactor-state-text">
+        SISTEMAS ONLINE // STANDBY
+      </div>
+    </section>
+
+    <!-- PAINEL DIREITO: TERMINAL DE CONVERSA -->
+    <section class="hud-panel">
+      <div class="panel-header">
+        <span>LOG DE COMUNICAÇÃO</span>
+        <span style="font-size: 0.7rem; color: var(--cyan-glow);">CANAL SEGURO</span>
+      </div>
+
+      <div class="chat-container">
+        <!-- Mensagens -->
+        <div id="chatMessages" class="chat-messages">
+          <div class="msg jarvis">
+            <div class="msg-header">J.A.R.V.I.S.</div>
+            <div class="msg-bubble">
+              Sistemas online e operacionais, Senhor. Pressione o microfone para falar comigo ou digite sua solicitação.
+            </div>
+          </div>
+        </div>
+
+        <!-- Chips de Comandos Rápidos -->
+        <div class="quick-chips">
+          <button class="chip-btn" data-cmd="Qual o status geral dos meus sistemas?">Status Geral</button>
+          <button class="chip-btn" data-cmd="Que horas e qual a data de hoje?">Data e Hora</button>
+          <button class="chip-btn" data-cmd="Jarvis, quem é você e quais são suas capacidades?">Quem é você?</button>
+          <button class="chip-btn" data-cmd="Qual a previsão de tarefas para hoje?">Tarefas</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- RODAPÉ: CONTROLES DE ÁUDIO E DIGITAÇÃO -->
+  <footer class="hud-footer">
+    <!-- Botão de Microfone -->
+    <button id="micBtn" class="mic-btn" title="Falar com o Jarvis (Clique para ligar/desligar microfone)">
+      <div class="mic-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
+        </svg>
+      </div>
+    </button>
+
+    <!-- Barra de Input Manual -->
+    <div class="input-wrapper">
+      <input type="text" id="chatInput" class="hud-input" placeholder="Diga ou digite um comando para o Jarvis..." autocomplete="off">
+      <button id="sendBtn" class="send-btn" title="Enviar comando">
+        <svg viewBox="0 0 24 24">
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Toggle de Voz Sintetizada -->
+    <div id="voiceToggle" class="voice-toggle active" title="Ativar/desativar resposta por voz do Jarvis">
+      <span>VOZ DO JARVIS: ON</span>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="/static/js/reactor.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
