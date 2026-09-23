@@ -16,36 +16,38 @@ from core.agent_tools import (
     rollback_last_change,
 )
 
-# Palavras-chave que indicam pedidos de codificação / alteração de sistema
-CODING_KEYWORDS = [
-    "altere", "alterar", "modifique", "modificar", "mude", "mudar",
-    "adicione", "adicionar", "crie um arquivo", "cria um arquivo", "crie o arquivo",
-    "crie uma função", "cria uma função", "crie um script", "cria um script",
-    "programe", "programar", "edite", "editar", "troque o código",
-    "mude a cor", "mude o estilo", "adicione um comando", "desfaça", "desfazer",
-    "reverta", "reverter", "rollback"
-]
+# Palavra-chave de autorização do protocolo de auto-programação
+PROTOCOL_KEYWORD = "autoprog"
 
 ROLLBACK_KEYWORDS = [
     "desfaça", "desfazer", "desfazer a última", "desfaça a última alteração",
-    "volte ao estado anterior", "reverta a alteração", "rollback", "reverter código"
+    "volte ao estado anterior", "reverta", "rollback", "reverter código"
 ]
 
 
 class CoderAgent:
-    """Agente de código auto-programável integrado ao Jarvis."""
+    """Agente de código auto-programável integrado ao Jarvis com ativação por protocolo seguro."""
 
     @staticmethod
     def is_coding_request(message: str) -> bool:
-        """Verifica se a mensagem do usuário é uma solicitação para alterar ou reverter código."""
+        """
+        Verifica se a mensagem contém a palavra-chave de autorização 'autoprog'.
+        A auto-programação SÓ é acionada quando o usuário menciona explicitamente o protocolo.
+        """
         msg_lower = message.lower().strip()
-        return any(kw in msg_lower for kw in CODING_KEYWORDS)
+        return PROTOCOL_KEYWORD in msg_lower
 
     @staticmethod
     def is_rollback_request(message: str) -> bool:
-        """Verifica se o usuário pediu para reverter a última alteração."""
+        """Verifica se dentro do protocolo autoprog foi solicitado rollback."""
         msg_lower = message.lower().strip()
         return any(kw in msg_lower for kw in ROLLBACK_KEYWORDS)
+
+    @staticmethod
+    def clean_instruction(message: str) -> str:
+        """Remove a palavra-chave 'autoprog' e termos comuns de ativação para isolar o comando."""
+        cleaned = re.sub(r"\b(protocolo|ativar|iniciar|modo)?\s*autoprog\b[:\s,-]*", "", message, flags=re.IGNORECASE)
+        return cleaned.strip() or message
 
     @classmethod
     def process_instruction(
@@ -64,14 +66,15 @@ class CoderAgent:
             yield {"type": "done", "data": reply}
             return reply
 
-        yield {"type": "status", "data": "Inspecionando arquivos do projeto..."}
+        actual_instruction = cls.clean_instruction(instruction)
+        yield {"type": "status", "data": "Protocolo AUTOPROG ativado: inspecionando arquivos..."}
 
         # 2. Obter mapa de arquivos do projeto
         files = list_project_files()
 
         # Determina arquivos potencialmente relevantes para a instrução
         relevant_files = []
-        inst_lower = instruction.lower()
+        inst_lower = actual_instruction.lower()
         for f in files:
             name = f.lower()
             if "css" in inst_lower and name.endswith(".css"):
@@ -106,7 +109,7 @@ class CoderAgent:
 
         prompt_system = (
             "Você é o módulo de Auto-Engenharia de Software do J.A.R.V.I.S.\n"
-            "O Senhor solicitou uma alteração ou adição em sua própria programação.\n"
+            "O Senhor ativou o protocolo AUTOPROG e solicitou uma alteração ou adição em sua própria programação.\n"
             f"Arquivos do projeto: {files}\n\n"
             f"Trechos de arquivos relevantes:\n{files_context}\n\n"
             "INSTRUÇÃO IMPORTANTE: Responda ESTRITAMENTE em formato JSON com o seguinte schema:\n"
@@ -121,7 +124,7 @@ class CoderAgent:
             "Não adicione nenhuma explicação fora do bloco JSON."
         )
 
-        user_prompt = f"Instrução do Senhor: {instruction}"
+        user_prompt = f"Instrução do Senhor via protocolo AUTOPROG: {actual_instruction}"
 
         yield {"type": "status", "data": "Formulando plano de código com a LLM local..."}
 

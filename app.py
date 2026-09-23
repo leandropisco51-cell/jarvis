@@ -124,8 +124,8 @@ async def chat_stream_endpoint(req: ChatRequest):
 
 
 def start_server(host: str = "127.0.0.1", port: int = 8000):
-    """Inicia o servidor Uvicorn."""
-    uvicorn.run("app:app", host=host, port=port, reload=False)
+    """Inicia o servidor Uvicorn com recarregamento dinâmico."""
+    uvicorn.run("app:app", host=host, port=port, reload=True)
 
 
 if __name__ == "__main__":
