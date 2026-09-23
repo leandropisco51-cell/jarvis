@@ -17,6 +17,7 @@ from core.llm_client import LLMClient
 from core.config import DEFAULT_MODEL
 from core.actions import get_system_stats, get_system_time
 from core.coder_agent import CoderAgent
+from core.web_tools import enrich_prompt_with_live_data
 
 # Diretórios base
 BASE_DIR = Path(__file__).resolve().parent
@@ -103,7 +104,12 @@ async def chat_stream_endpoint(req: ChatRequest):
                         yield "data: [DONE]\n\n"
                         break
             else:
-                for token in llm_client.chat_stream(req.message):
+                # Enriquecimento com dados em tempo real (notícias, localização ou busca web)
+                enriched_prompt, status_label = enrich_prompt_with_live_data(req.message)
+                if status_label:
+                    yield f"data: {json.dumps({'status': status_label, 'state': 'THINKING'})}\n\n"
+
+                for token in llm_client.chat_stream(enriched_prompt):
                     data = json.dumps({"token": token})
                     yield f"data: {data}\n\n"
                 yield "data: [DONE]\n\n"
