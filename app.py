@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Generator
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -20,6 +20,7 @@ from core.coder_agent import CoderAgent
 from core.web_tools import enrich_prompt_with_live_data
 from core.memory import memory_manager
 from core.system_optimizer import system_optimizer
+from core.tts_engine import synthesize_neural_speech, NEURAL_VOICES, DEFAULT_VOICE_ID
 
 # Diretórios base
 BASE_DIR = Path(__file__).resolve().parent
@@ -47,6 +48,39 @@ class ModelChangeRequest(BaseModel):
 class MemoryCreateRequest(BaseModel):
     content: str
     category: str = None
+
+
+class TTSRequest(BaseModel):
+    text: str
+    voice: str = DEFAULT_VOICE_ID
+
+
+@app.get("/api/tts/voices")
+async def get_tts_voices():
+    """Retorna a lista de vozes neurais disponíveis em PT-BR."""
+    return {
+        "voices": [
+            {"id": vid, "name": vdata["name"]}
+            for vid, vdata in NEURAL_VOICES.items()
+        ],
+        "default": DEFAULT_VOICE_ID,
+    }
+
+
+@app.post("/api/tts")
+async def generate_tts_audio(req: TTSRequest):
+    """Sintetiza áudio MP3 com voz neural humana em Português Brasileiro."""
+    if not req.text or not req.text.strip():
+        raise HTTPException(status_code=400, detail="Texto vazio para síntese de voz.")
+    try:
+        audio_bytes = await synthesize_neural_speech(req.text, req.voice)
+        if not audio_bytes:
+            raise HTTPException(status_code=400, detail="Nenhum conteúdo falável no texto.")
+        return Response(content=audio_bytes, media_type="audio/mpeg")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Falha no motor Neural TTS: {exc}")
 
 
 @app.get("/api/memories")

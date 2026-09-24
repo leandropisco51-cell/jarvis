@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('micBtn');
   const voiceToggle = document.getElementById('voiceToggle');
   const modelSelect = document.getElementById('modelSelect');
+  const voiceSelect = document.getElementById('voiceSelect');
 
   let isVoiceEnabled = true;
   let isListening = false;
@@ -18,11 +19,18 @@ document.addEventListener('DOMContentLoaded', () => {
   let synth = window.speechSynthesis;
   let ptVoice = null;
 
-  // 1. Configurar Síntese de Voz (TTS)
+  // Controle de Áudio Neural e Analisador de Espectro (Web Audio API)
+  let currentAudio = null;
+  let currentAudioUrl = null;
+  let audioCtx = null;
+  let analyserFrameId = null;
+  let ttsAbortController = null;
+
+  // 1. Configurar Síntese de Voz (Neural TTS + Fallback Offline)
   function initTTS() {
     function loadVoices() {
+      if (!synth) return;
       const voices = synth.getVoices();
-      // Prioriza vozes em português brasileiro
       ptVoice = voices.find(v => v.lang === 'pt-BR' && (v.name.includes('Google') || v.name.includes('Daniel') || v.name.includes('Natural'))) ||
                 voices.find(v => v.lang === 'pt-BR') ||
                 voices.find(v => v.lang.startsWith('pt')) ||
@@ -30,18 +38,63 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     loadVoices();
-    if (speechSynthesis.onvoiceschanged !== undefined) {
+    if (synth && speechSynthesis.onvoiceschanged !== undefined) {
       speechSynthesis.onvoiceschanged = loadVoices;
     }
   }
 
-  function speakText(text) {
+  function stopCurrentSpeech() {
+    if (ttsAbortController) {
+      ttsAbortController.abort();
+      ttsAbortController = null;
+    }
+    if (analyserFrameId) {
+      cancelAnimationFrame(analyserFrameId);
+      analyserFrameId = null;
+    }
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.src = '';
+      currentAudio = null;
+    }
+    if (currentAudioUrl) {
+      URL.revokeObjectURL(currentAudioUrl);
+      currentAudioUrl = null;
+    }
+    if (synth) {
+      synth.cancel();
+    }
+    if (reactor.updateAudioData) {
+      reactor.updateAudioData(null);
+    }
+  }
+
+  function speakFallbackBrowser(text) {
     if (!isVoiceEnabled || !synth) return;
+    const cleanText = text
+      .replace(/[*#_`]/g, '')
+      .replace(/\[.*?\]\(.*?\)/g, '')
+      .trim();
+    if (!cleanText) return;
 
-    // Cancela falas anteriores
-    synth.cancel();
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.lang = 'pt-BR';
+    if (ptVoice) utterance.voice = ptVoice;
+    utterance.rate = 1.05;
+    utterance.pitch = 0.95;
 
-    // Remove tags markdown básicas para leitura mais fluida
+    utterance.onstart = () => reactor.setState('SPEAKING');
+    utterance.onend = () => reactor.setState('STANDBY');
+    utterance.onerror = () => reactor.setState('STANDBY');
+
+    synth.speak(utterance);
+  }
+
+  async function speakText(text) {
+    if (!isVoiceEnabled) return;
+
+    stopCurrentSpeech();
+
     const cleanText = text
       .replace(/[*#_`]/g, '')
       .replace(/\[.*?\]\(.*?\)/g, '')
@@ -49,25 +102,79 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!cleanText) return;
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = 'pt-BR';
-    if (ptVoice) utterance.voice = ptVoice;
-    utterance.rate = 1.05; // Levemente acelerado e articulado
-    utterance.pitch = 0.95; // Tom ligeiramente grave sofisticado
+    const selectedVoice = voiceSelect ? voiceSelect.value : 'pt-BR-AntonioNeural';
+    ttsAbortController = new AbortController();
 
-    utterance.onstart = () => {
-      reactor.setState('SPEAKING');
-    };
+    try {
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: cleanText, voice: selectedVoice }),
+        signal: ttsAbortController.signal,
+      });
 
-    utterance.onend = () => {
-      reactor.setState('STANDBY');
-    };
+      if (!res.ok) {
+        throw new Error(`TTS HTTP ${res.status}`);
+      }
 
-    utterance.onerror = () => {
-      reactor.setState('STANDBY');
-    };
+      const blob = await res.blob();
+      if (!isVoiceEnabled) return;
 
-    synth.speak(utterance);
+      currentAudioUrl = URL.createObjectURL(blob);
+      const audio = new Audio(currentAudioUrl);
+      currentAudio = audio;
+
+      // Conectar Web Audio API para animar o Reator Arc em sincronia real com a voz
+      try {
+        if (!audioCtx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          audioCtx = new AudioContextClass();
+        }
+        if (audioCtx.state === 'suspended') {
+          await audioCtx.resume();
+        }
+        const source = audioCtx.createMediaElementSource(audio);
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 128;
+        source.connect(analyser);
+        analyser.connect(audioCtx.destination);
+
+        const freqData = new Uint8Array(analyser.frequencyBinCount);
+        const updateVisualizer = () => {
+          if (!currentAudio || currentAudio.paused || currentAudio.ended) return;
+          analyser.getByteFrequencyData(freqData);
+          if (reactor.updateAudioData) {
+            reactor.updateAudioData(freqData);
+          }
+          analyserFrameId = requestAnimationFrame(updateVisualizer);
+        };
+
+        audio.onplay = () => {
+          reactor.setState('SPEAKING');
+          updateVisualizer();
+        };
+      } catch (audioCtxErr) {
+        audio.onplay = () => {
+          reactor.setState('SPEAKING');
+        };
+      }
+
+      audio.onended = () => {
+        stopCurrentSpeech();
+        reactor.setState('STANDBY');
+      };
+
+      audio.onerror = () => {
+        stopCurrentSpeech();
+        reactor.setState('STANDBY');
+      };
+
+      await audio.play();
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      console.warn('Fallback para síntese local do navegador:', err);
+      speakFallbackBrowser(cleanText);
+    }
   }
 
   // 2. Configurar Reconhecimento de Voz (STT)
@@ -324,6 +431,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  if (voiceSelect) {
+    voiceSelect.addEventListener('change', () => {
+      const selectedName = voiceSelect.options[voiceSelect.selectedIndex].text.replace('🎙️ ', '');
+      appendMessage('jarvis', `Voz alterada para <b>${selectedName}</b>! Sistemas de áudio neural calibrados.`);
+      speakText(`Voz alterada para ${selectedName}! Sistemas de áudio neural calibrados.`);
+    });
+  }
+
   // Event Listeners
   sendBtn.addEventListener('click', sendMessage);
   chatInput.addEventListener('keydown', (e) => {
@@ -339,7 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
     voiceToggle.classList.toggle('active', isVoiceEnabled);
     voiceToggle.querySelector('span').textContent = isVoiceEnabled ? 'VOZ DO JARVIS: ON' : 'VOZ DO JARVIS: OFF';
     if (!isVoiceEnabled) {
-      synth.cancel();
+      stopCurrentSpeech();
       reactor.setState('STANDBY');
     }
   });

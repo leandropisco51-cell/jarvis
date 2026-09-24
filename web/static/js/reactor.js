@@ -14,6 +14,8 @@ class ArcReactor {
     this.pulse = 0;
     this.particles = [];
     this.numParticles = 40;
+    this.audioFreqs = null;
+    this.audioVolume = 0;
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -56,13 +58,17 @@ class ArcReactor {
 
   setState(newState) {
     this.state = newState;
+    if (newState !== 'SPEAKING') {
+      this.audioFreqs = null;
+      this.audioVolume = 0;
+    }
     const label = document.getElementById('reactorStateText');
     if (label) {
       const stateMap = {
         STANDBY: 'SISTEMAS ONLINE // STANDBY',
         LISTENING: 'OUVINDO COMANDOS...',
         THINKING: 'PROCESSANDO RESPOSTA...',
-        SPEAKING: 'TRANSMITINDO VOZ...',
+        SPEAKING: 'VOZ NEURAL // TRANSMITINDO...',
         CODING: 'AUTO-EVOLUÇÃO // CODIFICANDO...',
       };
       label.textContent = stateMap[newState] || newState;
@@ -70,6 +76,21 @@ class ArcReactor {
       label.style.borderColor = stateColor;
       label.style.color = stateColor;
     }
+  }
+
+  updateAudioData(freqArray) {
+    if (!freqArray || freqArray.length === 0) {
+      this.audioFreqs = null;
+      this.audioVolume = 0;
+      return;
+    }
+    this.audioFreqs = freqArray;
+    let sum = 0;
+    const count = Math.min(freqArray.length, 48);
+    for (let i = 0; i < count; i++) {
+      sum += freqArray[i];
+    }
+    this.audioVolume = (sum / count) / 255.0;
   }
 
   animate() {
@@ -91,7 +112,7 @@ class ArcReactor {
       mainColor = '#00f0ff';
       secColor = '#7928ca';
     } else if (this.state === 'SPEAKING') {
-      speedMult = 1.8;
+      speedMult = 1.8 + this.audioVolume * 1.2;
       mainColor = '#00ffaa';
       secColor = '#00f0ff';
     } else if (this.state === 'CODING') {
@@ -105,7 +126,7 @@ class ArcReactor {
     this.angle3 += 0.015 * speedMult;
     this.pulse += 0.04 * speedMult;
 
-    const pulseVal = Math.sin(this.pulse) * 6;
+    const pulseVal = Math.sin(this.pulse) * 6 + (this.state === 'SPEAKING' ? this.audioVolume * 18 : 0);
 
     // 1. Partículas orbitais
     this.drawParticles(mainColor);
@@ -216,7 +237,11 @@ class ArcReactor {
     for (let i = 0; i < bars; i++) {
       const a = (i * Math.PI * 2) / bars;
       let barH = 5 + Math.sin(i * 0.8 + this.pulse) * 4;
-      if (this.state === 'SPEAKING' || this.state === 'LISTENING') {
+      if (this.state === 'SPEAKING' && this.audioFreqs) {
+        const binIdx = (i * 2) % Math.min(this.audioFreqs.length, 48);
+        const freqNorm = this.audioFreqs[binIdx] / 255.0;
+        barH = 4 + freqNorm * 28 + Math.abs(Math.sin(i * 1.2 + this.pulse)) * 4;
+      } else if (this.state === 'SPEAKING' || this.state === 'LISTENING') {
         barH += Math.abs(Math.sin(i * 1.5 + this.pulse * 2)) * 12;
       }
       const x1 = Math.cos(a) * (r - barH / 2);
