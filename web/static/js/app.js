@@ -59,12 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
       reactor.setState('SPEAKING');
     };
 
-    utterance.onboundary = (event) => {
-      if (reactor && reactor.pulseSpeech) {
-        reactor.pulseSpeech();
-      }
-    };
-
     utterance.onend = () => {
       reactor.setState('STANDBY');
     };
