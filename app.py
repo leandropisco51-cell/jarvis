@@ -19,6 +19,7 @@ from core.actions import get_system_stats, get_system_time
 from core.coder_agent import CoderAgent
 from core.web_tools import enrich_prompt_with_live_data
 from core.memory import memory_manager
+from core.system_optimizer import system_optimizer
 
 # Diretórios base
 BASE_DIR = Path(__file__).resolve().parent
@@ -90,11 +91,24 @@ async def get_index():
 
 @app.get("/api/status")
 async def get_status():
-    """Retorna a telemetria do sistema e integridade do Ollama."""
+    """Retorna a telemetria do sistema, integridade do Ollama e dados de hardware."""
     stats = get_system_stats()
     stats["ollama_online"] = llm_client.check_health()
     stats["current_model"] = llm_client.model
+    stats["disk"] = system_optimizer.get_disk_info("C:\\")
     return stats
+
+
+@app.get("/api/hardware/diagnostic")
+async def get_hardware_diagnostic():
+    """Retorna telemetria detalhada de hardware, CPU, RAM, disco e processos."""
+    return system_optimizer.get_full_hardware_report()
+
+
+@app.post("/api/hardware/optimize")
+async def run_system_optimization_endpoint():
+    """Dispara rotinas de otimização de RAM e limpeza de arquivos temporários."""
+    return system_optimizer.run_full_optimization()
 
 
 @app.get("/api/models")
@@ -131,7 +145,41 @@ async def chat_stream_endpoint(req: ChatRequest):
 
     def event_generator() -> Generator[str, None, None]:
         try:
-            # 1. Verifica intenção explícita de memória persistente
+            # 1. Verifica intenção de otimização ou diagnóstico de hardware
+            optimizer_intent = system_optimizer.detect_optimizer_intent(req.message)
+            if optimizer_intent:
+                intent_type, _ = optimizer_intent
+                if intent_type == "optimize":
+                    yield f"data: {json.dumps({'status': 'Otimizando memória RAM e limpando caches temporários...', 'state': 'THINKING'})}\n\n"
+                    res = system_optimizer.run_full_optimization()
+                    reply = (
+                        f"Otimização de hardware concluída com sucesso, Senhor! "
+                        f"Foram liberados {res['freed_ram_mb']} MB de memória RAM e eliminados {res['deleted_temp_items']} arquivos temporários "
+                        f"({res['freed_disk_mb']} MB liberados no disco C:). "
+                        f"A memória RAM agora opera em {res['current_ram_percent']}%."
+                    )
+                    for word in reply.split(" "):
+                        yield f"data: {json.dumps({'token': word + ' '})}\n\n"
+                    yield f"data: {json.dumps({'hardware_optimized': True, 'ram_percent': res['current_ram_percent']})}\n\n"
+                    yield "data: [DONE]\n\n"
+                    return
+
+                elif intent_type == "diagnostic":
+                    rep = system_optimizer.get_full_hardware_report()
+                    top_proc = ", ".join([f"{p['name']} ({p['memory_mb']} MB)" for p in rep['top_processes'][:3]])
+                    reply = (
+                        f"Diagnóstico de hardware concluído, Senhor. "
+                        f"Processador com {rep['cpu']['percent']}% de carga em {rep['cpu']['logical_cores']} núcleos. "
+                        f"Memória RAM em {rep['ram']['percent']}% ({rep['ram']['used_gb']} GB de {rep['ram']['total_gb']} GB, status [{rep['ram']['health']}]). "
+                        f"Disco C: com {rep['disk']['free_gb']} GB livres ({rep['disk']['percent']}% ocupado). "
+                        f"Maiores processos no momento: {top_proc}."
+                    )
+                    for word in reply.split(" "):
+                        yield f"data: {json.dumps({'token': word + ' '})}\n\n"
+                    yield "data: [DONE]\n\n"
+                    return
+
+            # 2. Verifica intenção explícita de memória persistente
             memory_intent = memory_manager.detect_memory_intent(req.message)
             if memory_intent:
                 intent_type, arg = memory_intent

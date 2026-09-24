@@ -59,6 +59,26 @@
           </div>
         </div>
 
+        <!-- Disco C: -->
+        <div class="gauge-block">
+          <div class="gauge-title">
+            <span>DISCO PRINCIPAL (C:)</span>
+            <span id="diskPercent" class="gauge-value">0%</span>
+          </div>
+          <div class="gauge-bar-track">
+            <div id="diskBar" class="gauge-bar-fill" style="background: linear-gradient(90deg, #00f0ff, #ffb700); width: 0%;"></div>
+          </div>
+          <div id="diskDetail" style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-dim); margin-top: 6px;">
+            0 GB livres / 0 GB
+          </div>
+        </div>
+
+        <!-- Botão Otimizador Tático -->
+        <button id="optimizeBtn" class="hud-optimize-btn" title="Limpar caches, liberar RAM e acelerar o PC">
+          <span class="optimize-icon">⚡</span>
+          <span>OTIMIZAR SISTEMA</span>
+        </button>
+
         <!-- Estatísticas da CPU -->
         <div class="quick-stats">
           <div class="stat-box">
@@ -141,10 +161,9 @@
         <!-- Chips de Comandos Rápidos -->
         <div class="quick-chips">
           <button class="chip-btn" data-cmd="Qual o status geral dos meus sistemas?">Status Geral</button>
-          <button class="chip-btn" data-cmd="Que horas e qual a data de hoje?">Data e Hora</button>
-          <button class="chip-btn" style="border-color: rgba(0, 240, 255, 0.4); color: var(--cyan-glow);" data-cmd="Jarvis, o que você lembra sobre mim?">🧠 O que lembra?</button>
-          <button class="chip-btn" style="border-color: rgba(0, 255, 157, 0.4); color: var(--green);" data-cmd="Jarvis, lembre-se que meu nome é Leandro e programo em Python">💾 Lembre meu nome</button>
-          <button class="chip-btn" style="border-color: rgba(255,183,0,0.5); color: #ffb700;" data-cmd="Jarvis, protocolo autoprog: adicione um comando para abrir o YouTube no navegador">⚡ Autoprog: YouTube</button>
+          <button class="chip-btn" style="border-color: rgba(255, 183, 0, 0.6); color: #ffb700;" data-cmd="Jarvis, otimize o sistema e libere memória agora">⚡ Otimizar Máquina</button>
+          <button class="chip-btn" style="border-color: rgba(0, 240, 255, 0.5); color: var(--cyan-glow);" data-cmd="Jarvis, faça um diagnóstico completo do meu hardware">🔍 Diagnóstico Hardware</button>
+          <button class="chip-btn" style="border-color: rgba(0, 255, 157, 0.4); color: var(--green);" data-cmd="Jarvis, o que você lembra sobre mim?">🧠 Memórias</button>
           <button class="chip-btn" style="border-color: rgba(255,51,102,0.5); color: #ff7788;" data-cmd="Jarvis, protocolo autoprog: desfaça a última alteração">↺ Autoprog: Desfazer</button>
         </div>
       </div>

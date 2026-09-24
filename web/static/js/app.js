@@ -210,6 +210,9 @@ document.addEventListener('DOMContentLoaded', () => {
               if (parsed.memory_updated) {
                 loadMemories();
               }
+              if (parsed.hardware_optimized) {
+                updateTelemetry();
+              }
               if (parsed.token) {
                 fullResponse += parsed.token;
                 jarvisBubble.innerHTML = fullResponse.replace(/\n/g, '<br>') + '<span class="cursor-blink"></span>';
@@ -248,6 +251,17 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('ramPercent').textContent = `${memPercent}%`;
         document.getElementById('ramBar').style.width = `${memPercent}%`;
         document.getElementById('ramDetail').textContent = `${data.memory.used_gb} GB / ${data.memory.total_gb} GB`;
+      }
+
+      // Disco Principal
+      if (data.disk && data.disk.percent !== undefined) {
+        const diskPercent = data.disk.percent;
+        const diskElem = document.getElementById('diskPercent');
+        const diskBar = document.getElementById('diskBar');
+        const diskDetail = document.getElementById('diskDetail');
+        if (diskElem) diskElem.textContent = `${diskPercent}%`;
+        if (diskBar) diskBar.style.width = `${diskPercent}%`;
+        if (diskDetail) diskDetail.textContent = `${data.disk.free_gb} GB livres / ${data.disk.total_gb} GB`;
       }
 
       // CPU e Info
@@ -393,6 +407,43 @@ document.addEventListener('DOMContentLoaded', () => {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  // 8. Otimização Tática de Hardware
+  async function runSystemOptimization() {
+    const optBtn = document.getElementById('optimizeBtn');
+    if (optBtn) {
+      optBtn.classList.add('optimizing');
+      optBtn.innerHTML = '<span>⚡ OTIMIZANDO SISTEMA...</span>';
+    }
+
+    appendMessage('user', 'Jarvis, otimize o sistema e acelere a máquina agora.');
+    reactor.setState('THINKING');
+    const jarvisBubble = appendMessage('jarvis', '', true);
+
+    try {
+      const res = await fetch('/api/hardware/optimize', { method: 'POST' });
+      if (!res.ok) throw new Error('Falha ao acionar a rotina de otimização.');
+      const data = await res.json();
+
+      const msg = `Otimização de hardware concluída, Senhor! Foram liberados <b>${data.freed_ram_mb} MB</b> de RAM e limpos <b>${data.deleted_temp_items}</b> arquivos temporários (<b>${data.freed_disk_mb} MB</b> em disco). A memória RAM agora opera em <b>${data.current_ram_percent}%</b>.`;
+      jarvisBubble.innerHTML = msg;
+      speakText(`Otimização concluída, Senhor. Foram liberados ${data.freed_ram_mb} megabytes de memória RAM e a máquina está mais rápida e eficiente.`);
+      await updateTelemetry();
+    } catch (err) {
+      jarvisBubble.innerHTML = `<span style="color: #ff3366;">[ERRO]: ${err.message}</span>`;
+      reactor.setState('STANDBY');
+    } finally {
+      if (optBtn) {
+        optBtn.classList.remove('optimizing');
+        optBtn.innerHTML = '<span class="optimize-icon">⚡</span><span>OTIMIZAR SISTEMA</span>';
+      }
+    }
+  }
+
+  const optBtn = document.getElementById('optimizeBtn');
+  if (optBtn) {
+    optBtn.addEventListener('click', runSystemOptimization);
   }
 
   // Ações rápidas dos chips
