@@ -33,7 +33,6 @@ class CyberFace {
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
-    window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
 
     this.animate();
   }
@@ -68,19 +67,6 @@ class CyberFace {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
-  }
-
-  handleMouseMove(e) {
-    const rect = this.canvas.getBoundingClientRect();
-    const canvasCenterX = rect.left + rect.width / 2;
-    const canvasCenterY = rect.top + rect.height / 2;
-
-    this.normMouseX = Math.max(-1, Math.min(1, (e.clientX - canvasCenterX) / (window.innerWidth / 2)));
-    this.normMouseY = Math.max(-1, Math.min(1, (e.clientY - canvasCenterY) / (window.innerHeight / 2)));
-
-    // Rotação suave da cabeça robótica
-    this.targetRotY = this.normMouseX * 0.42; // Yaw (~24 graus)
-    this.targetRotX = -this.normMouseY * 0.28; // Pitch (~16 graus)
   }
 
   pulseSpeech() {
@@ -624,18 +610,97 @@ class CyberFace {
     this.jawGroup.rotation.x = -this.mouthOpen * 0.38; // Movimento amplo, claro e visível da boca!
     this.jawGroup.position.z = 0.35 + this.mouthOpen * 0.08;
 
-    // 2. Rastreamento Suave do Cursor (Parallax 3D da Cabeça)
-    this.headGroup.rotation.y += (this.targetRotY - this.headGroup.rotation.y) * 0.07;
-    this.headGroup.rotation.x += (this.targetRotX - this.headGroup.rotation.x) * 0.07;
+    // 2. Movimentação Automática da Cabeça (Kinematics & Expressão Corporal Autônoma)
+    let autoRotX = 0.0;
+    let autoRotY = 0.0;
+    let autoRotZ = 0.0;
+    let autoPosZ = 0.0;
+    let eyeScanX = 0.0;
+    let eyeScanY = 0.0;
 
-    // Respiração / Flutuação Mecânica
-    this.headGroup.position.y = 0.1 + Math.sin(this.time * 1.6) * 0.10;
+    const t = this.time;
 
-    // Pupilas acompanham a mira do mouse
+    if (this.state === 'SPEAKING') {
+      // Enquanto fala: acena a cabeça ritmicamente em concordância, faz inclinações e vira suavemente
+      const speechNod = Math.sin(t * 5.8) * 0.08 * (0.6 + this.mouthOpen * 0.8);
+      const syllableMicroNod = -Math.sin(t * 11.5) * 0.035 * this.mouthOpen;
+      autoRotX = speechNod + syllableMicroNod;
+
+      // Panning / virada natural para a esquerda e direita ao argumentar
+      autoRotY = Math.sin(t * 1.9) * 0.13 + Math.sin(t * 0.8) * 0.06;
+
+      // Inclinação sutil expressiva da cabeça (tilt/roll)
+      autoRotZ = Math.sin(t * 1.4 + 1.2) * 0.045 * (0.5 + this.mouthOpen * 0.6);
+
+      // Ênfase para frente ao falar
+      autoPosZ = 0.14 + Math.sin(t * 5.8) * 0.05;
+
+      // Flutuação vertical combinada com a fala
+      this.headGroup.position.y = 0.08 + Math.sin(t * 5.8) * 0.04 + Math.sin(t * 1.6) * 0.05;
+
+      // Olhar expressivo e vivo durante a fala
+      eyeScanX = Math.sin(t * 2.2) * 0.04;
+      eyeScanY = Math.cos(t * 2.8) * 0.025;
+
+    } else if (this.state === 'LISTENING') {
+      // Ouvindo o usuário: inclina-se para a frente e vira de lado com atenção
+      autoRotX = -0.07 + Math.sin(t * 1.2) * 0.02;
+      autoRotY = 0.06;
+      autoRotZ = 0.04;
+      autoPosZ = 0.22;
+      this.headGroup.position.y = 0.08 + Math.sin(t * 2.0) * 0.04;
+
+      eyeScanX = 0.0;
+      eyeScanY = -0.02;
+
+    } else if (this.state === 'THINKING') {
+      // Pensando/calculando: olha sutilmente para cima e para o lado com microvibração cognitiva
+      autoRotX = 0.08 + Math.sin(t * 1.0) * 0.02;
+      autoRotY = 0.12 + Math.sin(t * 0.7) * 0.03;
+      autoRotZ = -0.04;
+      autoPosZ = -0.05;
+      this.headGroup.position.y = 0.12 + Math.sin(t * 2.2) * 0.06;
+
+      // Micro pulso de computação
+      const jitter = Math.sin(t * 28.0) * 0.005;
+      autoRotX += jitter;
+      autoRotY += jitter;
+
+      eyeScanX = 0.04;
+      eyeScanY = 0.03;
+
+    } else if (this.state === 'CODING') {
+      // Modo codificação / autoprog: movimentos rápidos de varredura
+      autoRotX = Math.sin(t * 3.5) * 0.06;
+      autoRotY = Math.cos(t * 2.5) * 0.09;
+      autoRotZ = Math.sin(t * 2.0) * 0.03;
+      autoPosZ = 0.08;
+      this.headGroup.position.y = 0.1 + Math.sin(t * 3.0) * 0.04;
+
+    } else {
+      // STANDBY (Ocioso): Respiração calma e presença inteligente, varredura serena
+      autoRotX = Math.cos(t * 0.8) * 0.04;
+      autoRotY = Math.sin(t * 0.6) * 0.09;
+      autoRotZ = Math.sin(t * 0.4) * 0.025;
+      autoPosZ = 0.0;
+      this.headGroup.position.y = 0.1 + Math.sin(t * 1.5) * 0.09;
+
+      // Movimento autônomo sutil dos olhos
+      eyeScanX = Math.sin(t * 0.8) * 0.035;
+      eyeScanY = Math.cos(t * 0.6) * 0.02;
+    }
+
+    // Interpolação suave das rotações automáticas
+    this.headGroup.rotation.x += (autoRotX - this.headGroup.rotation.x) * 0.08;
+    this.headGroup.rotation.y += (autoRotY - this.headGroup.rotation.y) * 0.08;
+    this.headGroup.rotation.z += (autoRotZ - this.headGroup.rotation.z) * 0.08;
+    this.headGroup.position.z += (autoPosZ - this.headGroup.position.z) * 0.08;
+
+    // Movimentação autônoma das pupilas
     if (this.eyes) {
       this.eyes.forEach(eye => {
-        eye.pupil.position.x = this.normMouseX * 0.065;
-        eye.pupil.position.y = -this.normMouseY * 0.065;
+        eye.pupil.position.x = eyeScanX;
+        eye.pupil.position.y = eyeScanY;
       });
     }
 
