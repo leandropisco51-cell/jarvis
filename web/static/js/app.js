@@ -317,8 +317,8 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: selected })
       });
-      appendMessage('jarvis', `Modelo alterado para <b>${selected}</b>, Senhor.`);
-      speakText(`Modelo alterado para ${selected}, Senhor.`);
+      appendMessage('jarvis', `Pronto, troquei pro modelo <b>${selected}</b>!`);
+      speakText(`Pronto, troquei pro modelo ${selected}!`);
     } catch (e) {
       alert('Falha ao alterar modelo: ' + e);
     }
@@ -426,9 +426,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!res.ok) throw new Error('Falha ao acionar a rotina de otimização.');
       const data = await res.json();
 
-      const msg = `Otimização de hardware concluída, Senhor! Foram liberados <b>${data.freed_ram_mb} MB</b> de RAM e limpos <b>${data.deleted_temp_items}</b> arquivos temporários (<b>${data.freed_disk_mb} MB</b> em disco). A memória RAM agora opera em <b>${data.current_ram_percent}%</b>.`;
+      const msg = `Faxina feita com sucesso, chefe! Liberei <b>${data.freed_ram_mb} MB</b> de RAM e limpei <b>${data.deleted_temp_items}</b> arquivos temporários (<b>${data.freed_disk_mb} MB</b> de espaço recuperado). Agora a RAM tá em <b>${data.current_ram_percent}%</b> e a máquina tá tinindo!`;
       jarvisBubble.innerHTML = msg;
-      speakText(`Otimização concluída, Senhor. Foram liberados ${data.freed_ram_mb} megabytes de memória RAM e a máquina está mais rápida e eficiente.`);
+      speakText(`Faxina concluída, chefe! Liberei ${data.freed_ram_mb} megas de RAM e a máquina tá bem mais leve.`);
       await updateTelemetry();
     } catch (err) {
       jarvisBubble.innerHTML = `<span style="color: #ff3366;">[ERRO]: ${err.message}</span>`;
@@ -464,6 +464,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Mensagem inicial de boas-vindas do Jarvis
   setTimeout(() => {
-    speakText('Sistemas operacionais, Senhor. Em que posso ser útil hoje?');
+    speakText('Opa, tudo pronto por aqui! Em que posso te ajudar hoje?');
   }, 1000);
 });

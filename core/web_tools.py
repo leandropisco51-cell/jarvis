@@ -36,46 +36,73 @@ def search_web(query: str, max_results: int = 4) -> List[Dict[str, str]]:
         return []
 
 
+def fetch_google_news_rss(query: str = "", max_results: int = 4) -> List[Dict[str, str]]:
+    """Obtém manchetes em tempo real via RSS do Google Notícias (sem rate-limit, 100% atualizado)."""
+    try:
+        import xml.etree.ElementTree as ET
+        if query and query.strip():
+            encoded = urllib.parse.quote(query.strip())
+            url = f"https://news.google.com/rss/search?q={encoded}&hl=pt-BR&gl=BR&ceid=BR:pt-419"
+        else:
+            url = "https://news.google.com/rss?hl=pt-BR&gl=BR&ceid=BR:pt-419"
+
+        resp = requests.get(
+            url,
+            timeout=5,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        )
+        if resp.status_code == 200:
+            root = ET.fromstring(resp.content)
+            items = root.findall(".//item")[:max_results]
+            results = []
+            for item in items:
+                title_elem = item.find("title")
+                source_elem = item.find("source")
+                link_elem = item.find("link")
+                title = title_elem.text if title_elem is not None else ""
+                source = source_elem.text if source_elem is not None else ""
+                link = link_elem.text if link_elem is not None else ""
+                if title:
+                    clean_title = re.sub(r" - [^-]+$", "", title).strip()
+                    results.append({
+                        "title": clean_title,
+                        "snippet": f"Manchete em destaque: {title}",
+                        "source": source,
+                        "url": link,
+                    })
+            return results
+    except Exception as e:
+        print(f"[Erro RSS Notícias]: {e}")
+    return []
+
+
 def search_news(query: str, max_results: int = 4) -> List[Dict[str, str]]:
-    """Busca notícias recentes e globais em tempo real, com fallback garantido."""
+    """Busca notícias recentes e globais em tempo real, priorizando RSS de alta fidelidade."""
     try:
         clean_q = re.sub(
-            r"\b(jarvis|por favor|notícias|noticia|notícias sobre|ultimas noticias|últimas notícias|me diga as notícias|o que está acontecendo no|o que ta acontecendo no|sobre o mundo hoje|do mundo hoje|no mundo hoje)\b",
+            r"\b(jarvis|por favor|notícias|noticia|notícias sobre|ultimas noticias|últimas notícias|me diga as notícias|o que está acontecendo no|o que ta acontecendo no|o que tá acontecendo no|sobre o mundo hoje|do mundo hoje|no mundo hoje|no mundo|do mundo|mundo hoje)\b",
             "",
             query,
             flags=re.IGNORECASE,
-        ).strip()
+        ).strip(" ?.,!")
 
-        search_term = clean_q if clean_q else "noticias mundo hoje"
+        # 1. Tenta RSS do Google Notícias em tempo real
+        rss_results = fetch_google_news_rss(clean_q, max_results=max_results)
+        if rss_results:
+            return rss_results
+
+        # 2. Fallback: DuckDuckGo text search
+        search_term = f"ultimas noticias {clean_q}" if clean_q else "ultimas noticias brasil mundo"
         results = []
-
         with DDGS() as ddgs:
-            # 1. Tenta endpoint de news
-            try:
-                raw_news = list(ddgs.news(search_term, max_results=max_results))
-                for r in raw_news:
-                    title = r.get("title", "")
-                    snippet = r.get("body", "")
-                    if title and snippet:
-                        results.append({
-                            "title": title,
-                            "snippet": snippet,
-                            "source": r.get("source", ""),
-                            "url": r.get("url", ""),
-                        })
-            except Exception:
-                pass
-
-            # 2. Se news vazio ou sem resultados, fallback para busca web de notícias
-            if not results:
-                raw_text = list(ddgs.text(f"últimas notícias {search_term}", max_results=max_results))
-                for r in raw_text:
-                    results.append({
-                        "title": r.get("title", ""),
-                        "snippet": r.get("body", ""),
-                        "source": r.get("href", ""),
-                        "url": r.get("href", ""),
-                    })
+            raw_text = list(ddgs.text(search_term, max_results=max_results))
+            for r in raw_text:
+                results.append({
+                    "title": r.get("title", ""),
+                    "snippet": r.get("body", ""),
+                    "source": r.get("href", ""),
+                    "url": r.get("href", ""),
+                })
 
         return results
     except Exception as e:
@@ -142,7 +169,7 @@ def enrich_prompt_with_live_data(prompt: str) -> Tuple[str, Optional[str]]:
                 f"- Cidade/Estado/País: {geo['city']}, {geo['state']} - {geo['country']}\n"
                 f"- Link no Mapa: {geo['maps_url']}\n\n"
                 f"DIRETRIZES OBRIGATÓRIAS AO JARVIS:\n"
-                f"1. Responda em no máximo 2 a 3 frases rápidas.\n"
+                f"1. Responda em no máximo 2 a 3 frases rápidas, em tom coloquial, natural e direto.\n"
                 f"2. Informe o endereço e a localização exata do mundo real.\n"
                 f"3. Proibido citar Tony Stark ou ficção de quadrinhos.\n"
             )
@@ -155,7 +182,7 @@ def enrich_prompt_with_live_data(prompt: str) -> Tuple[str, Optional[str]]:
                     f"\n[DADOS DE LOCALIZAÇÃO REAIS DA INTERNET]:\n"
                     f"{web_text}\n\n"
                     f"DIRETRIZES OBRIGATÓRIAS AO JARVIS:\n"
-                    f"1. Responda em no máximo 2 a 3 frases rápidas com o endereço real.\n"
+                    f"1. Responda em no máximo 2 a 3 frases rápidas com o endereço real, em linguagem coloquial.\n"
                     f"2. Foco 100% no mundo real, sem alucinações ou ficção.\n"
                 )
                 return prompt + context, "📍 Consultando localização na internet..."
@@ -174,12 +201,13 @@ def enrich_prompt_with_live_data(prompt: str) -> Tuple[str, Optional[str]]:
         if news:
             news_text = "\n".join([f"- **{n['title']}** ({n.get('source', '')}): {n['snippet']}" for n in news])
             context = (
-                f"\n[NOTÍCIAS REAIS E FACTUAIS DO MUNDO COLETADAS DA INTERNET EM TEMPO REAL]:\n"
+                f"\n[MANCHETES E FATOS REAIS DO MUNDO HOJE]:\n"
                 f"{news_text}\n\n"
                 f"DIRETRIZES OBRIGATÓRIAS AO JARVIS:\n"
-                f"1. MUNDO REAL E ZERO ALUCINAÇÃO: Resuma estritamente os fatos e acontecimentos reais listados acima.\n"
-                f"2. PROIBIÇÃO TOTAL DE FICÇÃO: Personagens como Tony Stark, Indústrias Stark e super-heróis NÃO EXISTEM no mundo real. Jamais mencione qualquer coisa fictícia.\n"
-                f"3. CONCISÃO ABSOLUTA: Responda em no máximo 2 a 3 frases rápidas em texto corrido (sem listas com marcadores), com foco nos fatos principais para leitura fluida por voz.\n"
+                f"1. Fale como um parceiro esperto em tom leve, ágil e coloquial (ex: 'Olha só o que tá rolando hoje...').\n"
+                f"2. Resuma de forma direta os principais acontecimentos reais listados acima.\n"
+                f"3. Responda em no máximo 2 a 3 frases rápidas em texto corrido (sem listas com marcadores), perfeito para voz.\n"
+                f"4. Mantenha foco 100% no mundo real.\n"
             )
             return prompt + context, "📰 Coletando notícias reais do mundo..."
 
@@ -203,12 +231,12 @@ def enrich_prompt_with_live_data(prompt: str) -> Tuple[str, Optional[str]]:
         if web_res:
             web_text = "\n".join([f"- **{w['title']}**: {w['snippet']}" for w in web_res])
             context = (
-                f"\n[DADOS FACTUAIS REAIS COLETADOS DA INTERNET EM TEMPO REAL]:\n"
+                f"\n[DADOS FACTUAIS REAIS COLETADOS DA INTERNET]:\n"
                 f"{web_text}\n\n"
                 f"DIRETRIZES OBRIGATÓRIAS AO JARVIS:\n"
-                f"1. Baseie sua resposta ESTRITAMENTE nos dados reais da internet acima.\n"
-                f"2. NUNCA se recuse a responder e NUNCA dê disclaimers burocráticos (como 'não posso dar conselhos médicos'). Entregue os fatos científicos, farmacológicos, dados de bula e indicações solicitadas diretamente ao Senhor.\n"
-                f"3. Responda em no máximo 2 a 3 frases rápidas em texto corrido, objetivas, científicas e consistentes.\n"
+                f"1. Explique de forma direta, clara e amigável o que é o item/medicamento pesquisado, para que serve e suas características conforme os dados acima.\n"
+                f"2. Use linguagem coloquial, leve e descontraída em português do Brasil.\n"
+                f"3. Responda em no máximo 2 a 3 frases rápidas em texto corrido, de forma objetiva e prestativa.\n"
             )
             return prompt + context, "🔍 Realizando busca factual na internet..."
 

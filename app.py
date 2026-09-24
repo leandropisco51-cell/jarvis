@@ -153,10 +153,8 @@ async def chat_stream_endpoint(req: ChatRequest):
                     yield f"data: {json.dumps({'status': 'Otimizando memória RAM e limpando caches temporários...', 'state': 'THINKING'})}\n\n"
                     res = system_optimizer.run_full_optimization()
                     reply = (
-                        f"Otimização de hardware concluída com sucesso, Senhor! "
-                        f"Foram liberados {res['freed_ram_mb']} MB de memória RAM e eliminados {res['deleted_temp_items']} arquivos temporários "
-                        f"({res['freed_disk_mb']} MB liberados no disco C:). "
-                        f"A memória RAM agora opera em {res['current_ram_percent']}%."
+                        f"Pronto, dei aquela faxina no PC! Liberei {res['freed_ram_mb']} MB de RAM e limpei {res['deleted_temp_items']} arquivos temporários "
+                        f"({res['freed_disk_mb']} MB no disco C:). O uso da memória caiu pra {res['current_ram_percent']}%. A máquina tá bem mais leve agora!"
                     )
                     for word in reply.split(" "):
                         yield f"data: {json.dumps({'token': word + ' '})}\n\n"
@@ -168,11 +166,9 @@ async def chat_stream_endpoint(req: ChatRequest):
                     rep = system_optimizer.get_full_hardware_report()
                     top_proc = ", ".join([f"{p['name']} ({p['memory_mb']} MB)" for p in rep['top_processes'][:3]])
                     reply = (
-                        f"Diagnóstico de hardware concluído, Senhor. "
-                        f"Processador com {rep['cpu']['percent']}% de carga em {rep['cpu']['logical_cores']} núcleos. "
-                        f"Memória RAM em {rep['ram']['percent']}% ({rep['ram']['used_gb']} GB de {rep['ram']['total_gb']} GB, status [{rep['ram']['health']}]). "
-                        f"Disco C: com {rep['disk']['free_gb']} GB livres ({rep['disk']['percent']}% ocupado). "
-                        f"Maiores processos no momento: {top_proc}."
+                        f"Dá uma olhada no status do PC: o processador tá em {rep['cpu']['percent']}% e a memória RAM tá em {rep['ram']['percent']}% "
+                        f"({rep['ram']['used_gb']} GB usados de {rep['ram']['total_gb']} GB). O disco C: tem {rep['disk']['free_gb']} GB livres. "
+                        f"Os processos mais pesados no momento são: {top_proc}."
                     )
                     for word in reply.split(" "):
                         yield f"data: {json.dumps({'token': word + ' '})}\n\n"
@@ -185,10 +181,7 @@ async def chat_stream_endpoint(req: ChatRequest):
                 intent_type, arg = memory_intent
                 if intent_type == "save":
                     saved = memory_manager.save_memory(arg)
-                    reply = (
-                        f"Registrado no meu córtex neural permanente, Senhor: \"{saved['content']}\". "
-                        f"Jamais esquecerei (a menos que haja uma sobrecarga de energia, é claro)."
-                    )
+                    reply = f"Beleza, já anotei aqui: \"{saved['content']}\". Tá guardado na memória, não esqueço mais!"
                     for word in reply.split(" "):
                         yield f"data: {json.dumps({'token': word + ' '})}\n\n"
                     yield f"data: {json.dumps({'memory_updated': True})}\n\n"
@@ -198,10 +191,10 @@ async def chat_stream_endpoint(req: ChatRequest):
                 elif intent_type == "list":
                     all_mem = memory_manager.get_all_memories()
                     if not all_mem:
-                        reply = "Meus bancos de memória persistente sobre o Senhor estão vazios no momento. Uma tábula rasa, se me permite a observação poética."
+                        reply = "Minha memória sobre você tá zerada por enquanto. Se quiser que eu lembre de algo, é só me falar!"
                     else:
                         items = "\n".join([f"• [{m['category'].upper()}] {m['content']}" for m in all_mem])
-                        reply = f"Eis o que mantenho gravado em meus bancos de dados centrais sobre o Senhor:\n\n{items}\n\nUma coleção bastante seleta, devo admitir."
+                        reply = f"Olha o que eu já guardei sobre você aqui:\n\n{items}\n\nTá tudo na ponta da língua!"
                     for word in reply.split(" "):
                         yield f"data: {json.dumps({'token': word + ' '})}\n\n"
                     yield "data: [DONE]\n\n"
@@ -209,7 +202,7 @@ async def chat_stream_endpoint(req: ChatRequest):
 
                 elif intent_type == "clear":
                     memory_manager.clear_all_memories()
-                    reply = "Bancos de memória córtex resetados, Senhor. Todos os registros anteriores foram purgados com sucesso."
+                    reply = "Pronto, apaguei todas as memórias. Começamos do zero!"
                     for word in reply.split(" "):
                         yield f"data: {json.dumps({'token': word + ' '})}\n\n"
                     yield f"data: {json.dumps({'memory_updated': True})}\n\n"
