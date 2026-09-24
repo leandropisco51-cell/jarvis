@@ -1,47 +1,36 @@
 /**
- * J.A.R.V.I.S. Cybernetic Holographic Face Visualizer (3D Particle Mesh)
- * Rosto mecânico futurista construído em nuvem de pontos 3D que flutuam no espaço,
- * com articulação dinâmica de boca e mandíbula em perfeita sincronia com a voz do Jarvis.
+ * J.A.R.V.I.S. WebGL 3D Robotic Face Engine (Three.js)
+ * Rosto robótico mecatrônico futurista em WebGL real com placas metálicas chanfradas,
+ * sensores ópticos dinâmicos, nuvem de partículas flutuantes e mandíbula articulada
+ * com lip-sync em perfeita sincronia com a voz do Jarvis.
  */
 
 class CyberFace {
   constructor(canvasId) {
     this.canvas = document.getElementById(canvasId);
-    this.ctx = this.canvas.getContext('2d');
     this.state = 'STANDBY'; // 'STANDBY' | 'LISTENING' | 'THINKING' | 'SPEAKING' | 'CODING'
 
-    // Dimensões do Canvas e Projeção 3D
-    this.width = 440;
-    this.height = 440;
-    this.centerX = 220;
-    this.centerY = 210;
-    this.fov = 440;
-    this.cameraDistance = 210;
-
-    // Rotação 3D (Pitch, Yaw, Roll)
-    this.rotX = 0;
-    this.rotY = 0;
-    this.rotZ = 0;
-    this.targetRotX = 0;
-    this.targetRotY = 0;
-
-    // Articulação da Boca e Mandíbula
-    this.mouthOpen = 0.0; // 0.0 (fechada) a 1.0 (totalmente aberta)
+    // Parâmetros de Áudio e Fala
+    this.mouthOpen = 0.0;
     this.targetMouthOpen = 0.0;
     this.lastSpeechPulse = 0;
 
-    // Movimentação do Olhar / Mouse Parallax
-    this.mouseX = 0;
-    this.mouseY = 0;
-    this.lookOffsetX = 0;
-    this.lookOffsetY = 0;
+    // Rastreamento de Mouse / Parallax
+    this.normMouseX = 0.0;
+    this.normMouseY = 0.0;
+    this.targetRotY = 0.0;
+    this.targetRotX = 0.0;
 
-    // Temporizador global
-    this.time = 0;
+    // Temporizador
+    this.time = 0.0;
 
-    // Inicialização da Geometria do Rosto Robótico e Partículas
-    this.initFaceGeometry();
-    this.initAmbientParticles();
+    // Inicialização do Universo 3D WebGL
+    this.initWebGL();
+    this.initMaterials();
+    this.buildRobotFace();
+    this.buildParticleCloud();
+    this.buildHolographicHalo();
+    this.initLighting();
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -50,23 +39,36 @@ class CyberFace {
     this.animate();
   }
 
+  initWebGL() {
+    this.scene = new THREE.Scene();
+
+    const rect = this.canvas.getBoundingClientRect();
+    const width = rect.width || 440;
+    const height = rect.height || 440;
+
+    this.camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
+    this.camera.position.set(0, 0, 7.2);
+
+    this.renderer = new THREE.WebGLRenderer({
+      canvas: this.canvas,
+      antialias: true,
+      alpha: true,
+      powerPreference: 'high-performance'
+    });
+    this.renderer.setSize(width, height, false);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.15;
+  }
+
   resize() {
     const rect = this.canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    const size = Math.floor(Math.min(rect.width || 440, rect.height || 440)) || 440;
-    
-    this.canvas.width = size * dpr;
-    this.canvas.height = size * dpr;
-    if (this.ctx.resetTransform) {
-      this.ctx.resetTransform();
-    } else {
-      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-    }
-    this.ctx.scale(dpr, dpr);
-    this.width = size;
-    this.height = size;
-    this.centerX = size / 2;
-    this.centerY = size / 2 - 10;
+    const width = rect.width || 440;
+    const height = rect.height || 440;
+
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(width, height, false);
   }
 
   handleMouseMove(e) {
@@ -74,25 +76,22 @@ class CyberFace {
     const canvasCenterX = rect.left + rect.width / 2;
     const canvasCenterY = rect.top + rect.height / 2;
 
-    const normX = Math.max(-1, Math.min(1, (e.clientX - canvasCenterX) / (window.innerWidth / 2)));
-    const normY = Math.max(-1, Math.min(1, (e.clientY - canvasCenterY) / (window.innerHeight / 2)));
+    this.normMouseX = Math.max(-1, Math.min(1, (e.clientX - canvasCenterX) / (window.innerWidth / 2)));
+    this.normMouseY = Math.max(-1, Math.min(1, (e.clientY - canvasCenterY) / (window.innerHeight / 2)));
 
-    // Rotação suave da cabeça acompanhando a atenção do usuário
-    this.targetRotY = normX * 0.28; // Yaw (~16 graus)
-    this.targetRotX = -normY * 0.20; // Pitch (~11 graus)
-
-    // Deslocamento da pupila / sensores ópticos
-    this.lookOffsetX = normX;
-    this.lookOffsetY = normY;
+    // Rotação suave da cabeça robótica
+    this.targetRotY = this.normMouseX * 0.42; // Yaw (~24 graus)
+    this.targetRotX = -this.normMouseY * 0.28; // Pitch (~16 graus)
   }
 
   pulseSpeech() {
-    // Acionado a cada palavra/fonema pronunciado pelo TTS
     this.lastSpeechPulse = Date.now();
   }
 
   setState(newState) {
     this.state = newState;
+    this.updateThemeColors();
+
     const label = document.getElementById('reactorStateText');
     if (label) {
       const stateMap = {
@@ -103,704 +102,607 @@ class CyberFace {
         CODING: 'AUTO-EVOLUÇÃO // CODIFICANDO...',
       };
       label.textContent = stateMap[newState] || newState;
-      const stateColor = newState === 'LISTENING' ? '#ff2a6d' : (newState === 'CODING' ? '#ffb700' : (newState === 'SPEAKING' ? '#00ffcc' : (newState === 'THINKING' ? '#a855f7' : '#00f0ff')));
-      label.style.borderColor = stateColor;
-      label.style.color = stateColor;
+      const theme = this.getThemeValues();
+      label.style.borderColor = theme.cssPrimary;
+      label.style.color = theme.cssPrimary;
     }
   }
 
-  initFaceGeometry() {
-    this.nodes = [];
-    this.edges = [];
-
-    const nodeIndex = {};
-
-    const addNode = (id, x, y, z, options = {}) => {
-      const idx = this.nodes.length;
-      nodeIndex[id] = idx;
-      this.nodes.push({
-        id,
-        baseX: x,
-        baseY: y,
-        baseZ: z,
-        x, y, z,
-        projX: 0,
-        projY: 0,
-        projScale: 1,
-        projZ: 0,
-        ...options
-      });
-      return idx;
-    };
-
-    const addEdge = (id1, id2, edgeOptions = {}) => {
-      const i1 = nodeIndex[id1];
-      const i2 = nodeIndex[id2];
-      if (i1 !== undefined && i2 !== undefined) {
-        this.edges.push({ i1, i2, ...edgeOptions });
-      }
-    };
-
-    // 1. COROA E ESTRUTURA DO CRÂNIO (Holographic Cranium)
-    addNode('crown_top', 0, -148, 12, { isCrown: true });
-    addNode('crown_tl1', -36, -142, 22);
-    addNode('crown_tr1', 36, -142, 22);
-    addNode('crown_tl2', -76, -126, 12);
-    addNode('crown_tr2', 76, -126, 12);
-    addNode('temple_l', -96, -96, -8);
-    addNode('temple_r', 96, -96, -8);
-
-    // 2. PLACAS DA TESTA E CHIPSET NEURAL
-    addNode('forehead_c', 0, -114, 46);
-    addNode('forehead_l', -42, -110, 44);
-    addNode('forehead_r', 42, -110, 44);
-    addNode('forehead_out_l', -72, -96, 26);
-    addNode('forehead_out_r', 72, -96, 26);
-
-    // Núcleo Neural Central (Processador Holográfico)
-    addNode('core_top', 0, -96, 58, { isCore: true });
-    addNode('core_left', -13, -88, 56, { isCore: true });
-    addNode('core_right', 13, -88, 56, { isCore: true });
-    addNode('core_bot', 0, -80, 58, { isCore: true });
-
-    // 3. SOBRANCELHAS CYBERNETIC
-    addNode('glabella', 0, -70, 64);
-    addNode('brow_in_l', -22, -72, 62);
-    addNode('brow_in_r', 22, -72, 62);
-    addNode('brow_mid_l', -48, -73, 54);
-    addNode('brow_mid_r', 48, -73, 54);
-    addNode('brow_out_l', -75, -68, 40);
-    addNode('brow_out_r', 75, -68, 40);
-
-    // 4. SENSORES ÓPTICOS / OLHOS BIÔNICOS
-    // Olho Esquerdo
-    addNode('eye_in_l', -20, -50, 56, { isEye: true });
-    addNode('eye_top_l', -40, -58, 54, { isEye: true });
-    addNode('eye_out_l', -64, -48, 44, { isEye: true });
-    addNode('eye_bot_l', -40, -42, 52, { isEye: true });
-    addNode('pupil_l', -40, -50, 56, { isPupil: true, isLeftPupil: true });
-
-    // Olho Direito
-    addNode('eye_in_r', 20, -50, 56, { isEye: true });
-    addNode('eye_top_r', 40, -58, 54, { isEye: true });
-    addNode('eye_out_r', 64, -48, 44, { isEye: true });
-    addNode('eye_bot_r', 40, -42, 52, { isEye: true });
-    addNode('pupil_r', 40, -50, 56, { isPupil: true, isRightPupil: true });
-
-    // 5. NARIZ & RESPIRADOR MECÂNICO
-    addNode('nose_bridge1', 0, -52, 70);
-    addNode('nose_bridge2', 0, -28, 80);
-    addNode('nose_tip', 0, -2, 90, { isNoseTip: true });
-    addNode('nostril_l', -16, -2, 76);
-    addNode('nostril_r', 16, -2, 76);
-    addNode('subnasal', 0, 8, 78);
-
-    // 6. MAÇÃS DO ROSTO & ENTRADAS DE ÁUDIO LATERAIS
-    addNode('cheek_top_l', -80, -32, 34);
-    addNode('cheek_top_r', 80, -32, 34);
-    addNode('cheek_mid_l', -68, -2, 40);
-    addNode('cheek_mid_r', 68, -2, 40);
-    addNode('cheek_low_l', -54, 12, 44);
-    addNode('cheek_low_r', 54, 12, 44);
-
-    // Antenas e portas de áudio temporais
-    addNode('ear_top_l', -96, -30, -5);
-    addNode('ear_top_r', 96, -30, -5);
-    addNode('ear_mid_l', -100, -10, -5);
-    addNode('ear_mid_r', 100, -10, -5);
-    addNode('ear_bot_l', -96, 10, -5);
-    addNode('ear_bot_r', 96, 10, -5);
-
-    // 7. BOCA ARTICULADA (SE MEXE DINAMICAMENTE AO FALAR)
-    // Lábio Superior (Fixo com leve vibração acústica)
-    addNode('lip_top_c', 0, 18, 76, { isMouthUpper: true });
-    addNode('lip_top_l', -16, 20, 71, { isMouthUpper: true });
-    addNode('lip_top_r', 16, 20, 71, { isMouthUpper: true });
-    addNode('mouth_corner_l', -34, 24, 59, { isMouthCorner: true });
-    addNode('mouth_corner_r', 34, 24, 59, { isMouthCorner: true });
-
-    // Lábio Inferior (Move-se para baixo com o ritmo da fala)
-    addNode('lip_bot_c', 0, 26, 74, { isMouthLower: true, mouthWeight: 1.0 });
-    addNode('lip_bot_l', -16, 26, 69, { isMouthLower: true, mouthWeight: 0.85 });
-    addNode('lip_bot_r', 16, 26, 69, { isMouthLower: true, mouthWeight: 0.85 });
-
-    // Cavidade Acústica Interna (Laser sonoro da fala)
-    addNode('mouth_inner_c', 0, 22, 67, { isMouthInner: true, mouthWeight: 0.5 });
-    addNode('mouth_inner_l', -18, 22, 61, { isMouthInner: true, mouthWeight: 0.4 });
-    addNode('mouth_inner_r', 18, 22, 61, { isMouthInner: true, mouthWeight: 0.4 });
-
-    // 8. MANDÍBULA & QUEIXO ARTICULADOS (Acompanham a abertura bucal)
-    addNode('mentolabial', 0, 44, 69, { isJaw: true, jawWeight: 0.6 });
-    addNode('chin_top_l', -20, 52, 63, { isJaw: true, jawWeight: 0.65 });
-    addNode('chin_top_r', 20, 52, 63, { isJaw: true, jawWeight: 0.65 });
-
-    addNode('jaw_angle_l', -74, 36, 18, { isJaw: true, jawWeight: 0.25 });
-    addNode('jaw_angle_r', 74, 36, 18, { isJaw: true, jawWeight: 0.25 });
-    addNode('jaw_mid_l', -56, 62, 28, { isJaw: true, jawWeight: 0.55 });
-    addNode('jaw_mid_r', 56, 62, 28, { isJaw: true, jawWeight: 0.55 });
-
-    addNode('chin_corner_l', -26, 86, 48, { isChin: true, chinWeight: 0.9 });
-    addNode('chin_corner_r', 26, 86, 48, { isChin: true, chinWeight: 0.9 });
-    addNode('chin_tip', 0, 94, 56, { isChin: true, chinWeight: 1.0 });
-
-    // 9. PESCOÇO & TRANSDUTOR DE TRANSMISSÃO
-    addNode('throat_core', 0, 122, 25, { isThroat: true });
-    addNode('neck_l1', -34, 116, 15);
-    addNode('neck_r1', 34, 116, 15);
-    addNode('neck_base_l', -52, 142, -5);
-    addNode('neck_base_r', 52, 142, -5);
-    addNode('neck_base_c', 0, 146, 10);
-
-    // ==========================================
-    // CONEXÕES POLIGONAIS (WIREFRAME HOLOGRÁFICO)
-    // ==========================================
-    // Crânio & Testa
-    addEdge('crown_tl2', 'crown_tl1');
-    addEdge('crown_tl1', 'crown_top');
-    addEdge('crown_top', 'crown_tr1');
-    addEdge('crown_tr1', 'crown_tr2');
-    addEdge('crown_tl2', 'temple_l');
-    addEdge('crown_tr2', 'temple_r');
-
-    addEdge('temple_l', 'forehead_out_l');
-    addEdge('forehead_out_l', 'forehead_l');
-    addEdge('forehead_l', 'forehead_c');
-    addEdge('forehead_c', 'forehead_r');
-    addEdge('forehead_r', 'forehead_out_r');
-    addEdge('forehead_out_r', 'temple_r');
-
-    // Núcleo Neural
-    addEdge('forehead_c', 'core_top');
-    addEdge('core_top', 'core_left');
-    addEdge('core_left', 'core_bot');
-    addEdge('core_bot', 'core_right');
-    addEdge('core_right', 'core_top');
-    addEdge('core_bot', 'glabella');
-
-    // Sobrancelhas
-    addEdge('glabella', 'brow_in_l');
-    addEdge('brow_in_l', 'brow_mid_l');
-    addEdge('brow_mid_l', 'brow_out_l');
-    addEdge('brow_out_l', 'temple_l');
-
-    addEdge('glabella', 'brow_in_r');
-    addEdge('brow_in_r', 'brow_mid_r');
-    addEdge('brow_mid_r', 'brow_out_r');
-    addEdge('brow_out_r', 'temple_r');
-
-    // Olhos / Sensores Ópticos
-    addEdge('eye_in_l', 'eye_top_l');
-    addEdge('eye_top_l', 'eye_out_l');
-    addEdge('eye_out_l', 'eye_bot_l');
-    addEdge('eye_bot_l', 'eye_in_l');
-    addEdge('brow_mid_l', 'eye_top_l');
-
-    addEdge('eye_in_r', 'eye_top_r');
-    addEdge('eye_top_r', 'eye_out_r');
-    addEdge('eye_out_r', 'eye_bot_r');
-    addEdge('eye_bot_r', 'eye_in_r');
-    addEdge('brow_mid_r', 'eye_top_r');
-
-    // Nariz
-    addEdge('glabella', 'nose_bridge1');
-    addEdge('nose_bridge1', 'nose_bridge2');
-    addEdge('nose_bridge2', 'nose_tip');
-    addEdge('nose_tip', 'nostril_l');
-    addEdge('nostril_l', 'subnasal');
-    addEdge('nose_tip', 'nostril_r');
-    addEdge('nostril_r', 'subnasal');
-    addEdge('eye_in_l', 'nose_bridge1');
-    addEdge('eye_in_r', 'nose_bridge1');
-
-    // Bochechas & Orelhas
-    addEdge('eye_out_l', 'cheek_top_l');
-    addEdge('cheek_top_l', 'cheek_mid_l');
-    addEdge('cheek_mid_l', 'cheek_low_l');
-    addEdge('cheek_top_l', 'ear_top_l');
-    addEdge('ear_top_l', 'ear_mid_l');
-    addEdge('ear_mid_l', 'ear_bot_l');
-    addEdge('ear_bot_l', 'jaw_angle_l');
-
-    addEdge('eye_out_r', 'cheek_top_r');
-    addEdge('cheek_top_r', 'cheek_mid_r');
-    addEdge('cheek_mid_r', 'cheek_low_r');
-    addEdge('cheek_top_r', 'ear_top_r');
-    addEdge('ear_top_r', 'ear_mid_r');
-    addEdge('ear_mid_r', 'ear_bot_r');
-    addEdge('ear_bot_r', 'jaw_angle_r');
-
-    // Boca
-    addEdge('subnasal', 'lip_top_c');
-    addEdge('lip_top_c', 'lip_top_l');
-    addEdge('lip_top_l', 'mouth_corner_l');
-    addEdge('lip_top_c', 'lip_top_r');
-    addEdge('lip_top_r', 'mouth_corner_r');
-
-    addEdge('mouth_corner_l', 'lip_bot_l');
-    addEdge('lip_bot_l', 'lip_bot_c');
-    addEdge('lip_bot_c', 'lip_bot_r');
-    addEdge('lip_bot_r', 'mouth_corner_r');
-
-    addEdge('nostril_l', 'lip_top_l');
-    addEdge('nostril_r', 'lip_top_r');
-    addEdge('cheek_low_l', 'mouth_corner_l');
-    addEdge('cheek_low_r', 'mouth_corner_r');
-
-    // Cavidade interna
-    addEdge('mouth_inner_l', 'mouth_inner_c');
-    addEdge('mouth_inner_c', 'mouth_inner_r');
-
-    // Mandíbula & Queixo
-    addEdge('lip_bot_c', 'mentolabial');
-    addEdge('mentolabial', 'chin_top_l');
-    addEdge('mentolabial', 'chin_top_r');
-
-    addEdge('jaw_angle_l', 'jaw_mid_l');
-    addEdge('jaw_mid_l', 'chin_corner_l');
-    addEdge('chin_corner_l', 'chin_tip');
-    addEdge('chin_tip', 'chin_corner_r');
-    addEdge('chin_corner_r', 'jaw_mid_r');
-    addEdge('jaw_mid_r', 'jaw_angle_r');
-
-    addEdge('chin_top_l', 'chin_corner_l');
-    addEdge('chin_top_r', 'chin_corner_r');
-
-    // Pescoço & Transdutor
-    addEdge('chin_tip', 'throat_core');
-    addEdge('jaw_mid_l', 'neck_l1');
-    addEdge('jaw_mid_r', 'neck_r1');
-    addEdge('neck_l1', 'throat_core');
-    addEdge('neck_r1', 'throat_core');
-    addEdge('throat_core', 'neck_base_c');
-    addEdge('neck_l1', 'neck_base_l');
-    addEdge('neck_r1', 'neck_base_r');
-    addEdge('neck_base_l', 'neck_base_c');
-    addEdge('neck_base_r', 'neck_base_c');
+  getThemeValues() {
+    switch (this.state) {
+      case 'LISTENING':
+        return {
+          primary: 0xff2a6d,
+          secondary: 0xff7700,
+          cssPrimary: '#ff2a6d',
+          glowIntensity: 1.5,
+        };
+      case 'THINKING':
+        return {
+          primary: 0xa855f7,
+          secondary: 0x00f0ff,
+          cssPrimary: '#a855f7',
+          glowIntensity: 1.6,
+        };
+      case 'SPEAKING':
+        return {
+          primary: 0x00ffcc,
+          secondary: 0x38bdf8,
+          cssPrimary: '#00ffcc',
+          glowIntensity: 1.8,
+        };
+      case 'CODING':
+        return {
+          primary: 0xffb700,
+          secondary: 0xff4400,
+          cssPrimary: '#ffb700',
+          glowIntensity: 1.5,
+        };
+      case 'STANDBY':
+      default:
+        return {
+          primary: 0x00f0ff,
+          secondary: 0x0077ff,
+          cssPrimary: '#00f0ff',
+          glowIntensity: 1.2,
+        };
+    }
   }
 
-  initAmbientParticles() {
-    this.ambientParticles = [];
-    const count = 65;
-    for (let i = 0; i < count; i++) {
-      const radius = 110 + Math.random() * 110;
+  updateThemeColors() {
+    const theme = this.getThemeValues();
+
+    if (this.glowMat) {
+      this.glowMat.color.setHex(theme.primary);
+      this.glowMat.emissive.setHex(theme.primary);
+      this.glowMat.emissiveIntensity = theme.glowIntensity;
+    }
+
+    if (this.particleMat) {
+      this.particleMat.color.setHex(theme.primary);
+    }
+
+    if (this.rimLightL) {
+      this.rimLightL.color.setHex(theme.primary);
+    }
+
+    if (this.rimLightR) {
+      this.rimLightR.color.setHex(theme.secondary);
+    }
+
+    if (this.eyes) {
+      this.eyes.forEach(eye => {
+        if (eye.light) eye.light.color.setHex(theme.primary);
+      });
+    }
+
+    if (this.mouthLight) {
+      this.mouthLight.color.setHex(theme.primary);
+    }
+  }
+
+  initMaterials() {
+    // 1. Placas Metálicas Principais (Titânio / Grafite Mecha)
+    this.metalPlateMat = new THREE.MeshStandardMaterial({
+      color: 0x111c2a,
+      metalness: 0.88,
+      roughness: 0.28,
+      envMapIntensity: 1.0,
+      flatShading: false,
+    });
+
+    // 2. Placas Metálicas Escuras / Rebaixos
+    this.darkMetalMat = new THREE.MeshStandardMaterial({
+      color: 0x070c14,
+      metalness: 0.95,
+      roughness: 0.18,
+      flatShading: true,
+    });
+
+    // 3. Material Neon de Energia Cibernética (Emissive Glow)
+    this.glowMat = new THREE.MeshStandardMaterial({
+      color: 0x00f0ff,
+      emissive: 0x00f0ff,
+      emissiveIntensity: 1.2,
+      roughness: 0.1,
+      metalness: 0.1,
+    });
+
+    // 4. Lentes dos Sensores Ópticos (Olhos)
+    this.eyeLensMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0x00f0ff,
+      emissiveIntensity: 2.0,
+      metalness: 0.2,
+      roughness: 0.05,
+    });
+
+    // 5. Wireframe Holográfico Sutil
+    this.wireframeMat = new THREE.MeshBasicMaterial({
+      color: 0x00f0ff,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.15,
+    });
+
+    // 6. Material da Nuvem de Partículas
+    this.particleMat = new THREE.PointsMaterial({
+      size: 0.045,
+      color: 0x00f0ff,
+      transparent: true,
+      opacity: 0.75,
+      blending: THREE.AdditiveBlending,
+    });
+  }
+
+  buildRobotFace() {
+    // Grupo que contém toda a cabeça robótica (rotaciona junto com o mouse)
+    this.headGroup = new THREE.Group();
+    this.headGroup.position.set(0, 0.1, 0);
+    this.scene.add(this.headGroup);
+
+    // ==========================================
+    // 1. CRÂNIO & CAPACETE (Cranium & Helmet Dome)
+    // ==========================================
+    const craniumGeo = new THREE.SphereGeometry(1.45, 32, 24, 0, Math.PI * 2, 0, Math.PI * 0.55);
+    craniumGeo.scale(1.0, 1.22, 1.15);
+    const craniumMesh = new THREE.Mesh(craniumGeo, this.metalPlateMat);
+    craniumMesh.position.set(0, 0.25, -0.15);
+    this.headGroup.add(craniumMesh);
+
+    // Sobreposição Wireframe no crânio (holographic overlay)
+    const craniumWire = new THREE.Mesh(craniumGeo, this.wireframeMat);
+    craniumWire.position.copy(craniumMesh.position);
+    craniumWire.scale.multiplyScalar(1.002);
+    this.headGroup.add(craniumWire);
+
+    // Crista Central da Cabeça (Crest Plate)
+    const crestGeo = new THREE.BoxGeometry(0.18, 0.35, 2.2);
+    const crestMesh = new THREE.Mesh(crestGeo, this.darkMetalMat);
+    crestMesh.position.set(0, 1.62, -0.15);
+    crestMesh.rotation.x = -0.16;
+    this.headGroup.add(crestMesh);
+
+    // Fita de neon central na crista
+    const crestNeonGeo = new THREE.BoxGeometry(0.04, 0.04, 2.0);
+    const crestNeon = new THREE.Mesh(crestNeonGeo, this.glowMat);
+    crestNeon.position.set(0, 1.82, -0.15);
+    crestNeon.rotation.x = -0.16;
+    this.headGroup.add(crestNeon);
+
+    // Escudos Temporais Laterais
+    [-1, 1].forEach(side => {
+      const shieldGeo = new THREE.BoxGeometry(0.2, 1.15, 1.6);
+      const shield = new THREE.Mesh(shieldGeo, this.metalPlateMat);
+      shield.position.set(side * 1.48, 0.42, -0.2);
+      shield.rotation.z = side * -0.07;
+      this.headGroup.add(shield);
+    });
+
+    // ==========================================
+    // 2. PLACAS DA TESTA & CHIPSET NEURAL
+    // ==========================================
+    // Placa da Testa Curvada
+    const foreheadGeo = new THREE.CylinderGeometry(1.42, 1.48, 0.58, 20, 1, false, Math.PI * 0.22, Math.PI * 0.56);
+    const forehead = new THREE.Mesh(foreheadGeo, this.metalPlateMat);
+    forehead.position.set(0, 0.78, 0.02);
+    forehead.rotation.y = -Math.PI * 0.5;
+    this.headGroup.add(forehead);
+
+    // Núcleo Neural Central Iluminado (Processador na testa)
+    const coreGeo = new THREE.OctahedronGeometry(0.16, 0);
+    const coreMesh = new THREE.Mesh(coreGeo, this.glowMat);
+    coreMesh.position.set(0, 0.88, 1.45);
+    this.headGroup.add(coreMesh);
+    this.neuralCore = coreMesh;
+
+    // ==========================================
+    // 3. SOBRANCELHA & VISOR ESCURO
+    // ==========================================
+    // Barras angulares da sobrancelha robótica
+    [-1, 1].forEach(side => {
+      const browGeo = new THREE.BoxGeometry(0.9, 0.22, 0.45);
+      const brow = new THREE.Mesh(browGeo, this.darkMetalMat);
+      brow.position.set(side * 0.55, 0.46, 1.34);
+      brow.rotation.z = side * -0.14;
+      brow.rotation.y = side * 0.18;
+      this.headGroup.add(brow);
+
+      // Fita de neon da sobrancelha
+      const browNeonGeo = new THREE.BoxGeometry(0.85, 0.03, 0.05);
+      const browNeon = new THREE.Mesh(browNeonGeo, this.glowMat);
+      browNeon.position.set(side * 0.55, 0.55, 1.48);
+      browNeon.rotation.copy(brow.rotation);
+      this.headGroup.add(browNeon);
+    });
+
+    // Visor Preto de Fundo (Atrás dos olhos)
+    const visorGeo = new THREE.BoxGeometry(2.1, 0.58, 0.35);
+    const visor = new THREE.Mesh(visorGeo, this.darkMetalMat);
+    visor.position.set(0, 0.22, 1.25);
+    this.headGroup.add(visor);
+
+    // ==========================================
+    // 4. SENSORES ÓPTICOS CYBERNETIC (OLHOS)
+    // ==========================================
+    this.eyes = [];
+    [-1, 1].forEach(side => {
+      const eyeSocketGroup = new THREE.Group();
+      eyeSocketGroup.position.set(side * 0.58, 0.22, 1.36);
+
+      // Aro chanfrado metálico
+      const bezelGeo = new THREE.CylinderGeometry(0.24, 0.28, 0.12, 18);
+      bezelGeo.rotateX(Math.PI * 0.5);
+      const bezel = new THREE.Mesh(bezelGeo, this.darkMetalMat);
+      eyeSocketGroup.add(bezel);
+
+      // Anel de neon brilhante
+      const ringGeo = new THREE.TorusGeometry(0.22, 0.035, 10, 24);
+      const ring = new THREE.Mesh(ringGeo, this.glowMat);
+      eyeSocketGroup.add(ring);
+
+      // Lente óptica central
+      const lensGeo = new THREE.SphereGeometry(0.14, 18, 18);
+      const lens = new THREE.Mesh(lensGeo, this.eyeLensMat);
+      eyeSocketGroup.add(lens);
+
+      // Ponto focal / Pupila que mira no mouse
+      const pupilGeo = new THREE.SphereGeometry(0.065, 12, 12);
+      const pupil = new THREE.Mesh(pupilGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      pupil.position.z = 0.09;
+      eyeSocketGroup.add(pupil);
+
+      // Luz emitida por cada olho
+      const eyeLight = new THREE.PointLight(0x00f0ff, 1.4, 3.8);
+      eyeLight.position.set(0, 0, 0.22);
+      eyeSocketGroup.add(eyeLight);
+
+      this.headGroup.add(eyeSocketGroup);
+      this.eyes.push({
+        group: eyeSocketGroup,
+        lens,
+        pupil,
+        light: eyeLight,
+        basePos: eyeSocketGroup.position.clone()
+      });
+    });
+
+    // ==========================================
+    // 5. BOCHECHAS CHANFRADAS (Cheekplates)
+    // ==========================================
+    [-1, 1].forEach(side => {
+      const cheekGeo = new THREE.BoxGeometry(0.75, 0.95, 0.4);
+      const cheek = new THREE.Mesh(cheekGeo, this.metalPlateMat);
+      cheek.position.set(side * 0.96, -0.26, 1.15);
+      cheek.rotation.y = side * 0.42;
+      cheek.rotation.z = side * 0.15;
+      this.headGroup.add(cheek);
+
+      // Costura luminosa de neon na bochecha
+      const seamGeo = new THREE.BoxGeometry(0.04, 0.88, 0.04);
+      const seam = new THREE.Mesh(seamGeo, this.glowMat);
+      seam.position.set(side * 1.08, -0.26, 1.30);
+      seam.rotation.copy(cheek.rotation);
+      this.headGroup.add(seam);
+    });
+
+    // ==========================================
+    // 6. NARIZ & RESPIRADOR MECÂNICO
+    // ==========================================
+    // Ponte do nariz
+    const noseBridgeGeo = new THREE.BoxGeometry(0.24, 0.65, 0.32);
+    const noseBridge = new THREE.Mesh(noseBridgeGeo, this.darkMetalMat);
+    noseBridge.position.set(0, 0.04, 1.44);
+    noseBridge.rotation.x = -0.16;
+    this.headGroup.add(noseBridge);
+
+    // Respirador / Ventilação
+    const ventBaseGeo = new THREE.ConeGeometry(0.38, 0.45, 4);
+    ventBaseGeo.rotateY(Math.PI * 0.25);
+    ventBaseGeo.rotateX(Math.PI);
+    const ventBase = new THREE.Mesh(ventBaseGeo, this.darkMetalMat);
+    ventBase.position.set(0, -0.32, 1.48);
+    this.headGroup.add(ventBase);
+
+    // Aletas horizontais do respirador com brilho
+    for (let i = 0; i < 3; i++) {
+      const slatGeo = new THREE.BoxGeometry(0.30 - i * 0.07, 0.035, 0.08);
+      const slat = new THREE.Mesh(slatGeo, this.glowMat);
+      slat.position.set(0, -0.23 - i * 0.08, 1.55 - i * 0.03);
+      this.headGroup.add(slat);
+    }
+
+    // ==========================================
+    // 7. ORELHAS / TURBINAS AUDITIVAS LATERAIS
+    // ==========================================
+    this.earRings = [];
+    [-1, 1].forEach(side => {
+      const earGroup = new THREE.Group();
+      earGroup.position.set(side * 1.62, 0.06, -0.12);
+      earGroup.rotation.y = side * Math.PI * 0.5;
+
+      const housingGeo = new THREE.CylinderGeometry(0.48, 0.52, 0.25, 24);
+      const housing = new THREE.Mesh(housingGeo, this.darkMetalMat);
+      earGroup.add(housing);
+
+      const innerRingGeo = new THREE.TorusGeometry(0.36, 0.04, 8, 24);
+      const innerRing = new THREE.Mesh(innerRingGeo, this.glowMat);
+      innerRing.rotation.x = Math.PI * 0.5;
+      earGroup.add(innerRing);
+
+      const centerCoreGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.3, 16);
+      const centerCore = new THREE.Mesh(centerCoreGeo, this.metalPlateMat);
+      earGroup.add(centerCore);
+
+      this.headGroup.add(earGroup);
+      this.earRings.push(innerRing);
+    });
+
+    // ==========================================
+    // 8. MANDÍBULA ARTICULADA & BOCA QUE FALA (Lip-Sync)
+    // ==========================================
+    // Lábio Superior Fixo
+    const upperLipGeo = new THREE.BoxGeometry(0.68, 0.12, 0.32);
+    const upperLip = new THREE.Mesh(upperLipGeo, this.darkMetalMat);
+    upperLip.position.set(0, -0.54, 1.40);
+    this.headGroup.add(upperLip);
+
+    // Fita de neon no lábio superior
+    const upperLipNeonGeo = new THREE.BoxGeometry(0.64, 0.025, 0.04);
+    const upperLipNeon = new THREE.Mesh(upperLipNeonGeo, this.glowMat);
+    upperLipNeon.position.set(0, -0.49, 1.48);
+    this.headGroup.add(upperLipNeon);
+
+    // Cavidade interna da boca (recesso acústico)
+    const mouthCavityGeo = new THREE.BoxGeometry(0.68, 0.38, 0.42);
+    const mouthCavity = new THREE.Mesh(mouthCavityGeo, new THREE.MeshBasicMaterial({ color: 0x01050a }));
+    mouthCavity.position.set(0, -0.66, 1.25);
+    this.headGroup.add(mouthCavity);
+
+    // Luz pontual no interior da boca (acende e vibra quando fala!)
+    this.mouthLight = new THREE.PointLight(0x00ffcc, 0.0, 3.0);
+    this.mouthLight.position.set(0, -0.66, 1.38);
+    this.headGroup.add(this.mouthLight);
+
+    // Barras de Equalizador de Áudio (Voice Matrix Teeth)
+    this.audioBars = [];
+    const barCount = 7;
+    for (let i = 0; i < barCount; i++) {
+      const barGeo = new THREE.BoxGeometry(0.05, 0.18, 0.05);
+      const barMesh = new THREE.Mesh(barGeo, this.glowMat);
+      const u = (i - (barCount - 1) / 2) * 0.085;
+      barMesh.position.set(u, -0.64, 1.36);
+      this.headGroup.add(barMesh);
+      this.audioBars.push(barMesh);
+    }
+
+    // GRUPO DA MANDÍBULA MÓVEL (Hinged at the Jaw Joint)
+    this.jawGroup = new THREE.Group();
+    // Pivô de rotação posicionado na articulação temporomandibular
+    this.jawGroup.position.set(0, -0.42, 0.35);
+    this.headGroup.add(this.jawGroup);
+
+    // Lábio Inferior Móvel
+    const lowerLipGeo = new THREE.BoxGeometry(0.65, 0.12, 0.30);
+    const lowerLip = new THREE.Mesh(lowerLipGeo, this.darkMetalMat);
+    lowerLip.position.set(0, -0.22, 1.05);
+    this.jawGroup.add(lowerLip);
+
+    // Fita de neon no lábio inferior
+    const lowerLipNeonGeo = new THREE.BoxGeometry(0.60, 0.025, 0.04);
+    const lowerLipNeon = new THREE.Mesh(lowerLipNeonGeo, this.glowMat);
+    lowerLipNeon.position.set(0, -0.27, 1.15);
+    this.jawGroup.add(lowerLipNeon);
+
+    // Placa do Queixo Angular (Chiseled Chin)
+    const chinGeo = new THREE.BoxGeometry(0.72, 0.58, 0.65);
+    const chin = new THREE.Mesh(chinGeo, this.metalPlateMat);
+    chin.position.set(0, -0.54, 0.98);
+    chin.rotation.x = -0.26;
+    this.jawGroup.add(chin);
+
+    // Linha de neon no queixo
+    const chinGlowGeo = new THREE.BoxGeometry(0.48, 0.05, 0.05);
+    const chinGlow = new THREE.Mesh(chinGlowGeo, this.glowMat);
+    chinGlow.position.set(0, -0.66, 1.18);
+    this.jawGroup.add(chinGlow);
+
+    // Vigas laterais da mandíbula que conectam à articulação
+    [-1, 1].forEach(side => {
+      const strutGeo = new THREE.BoxGeometry(0.2, 0.35, 1.25);
+      const strut = new THREE.Mesh(strutGeo, this.darkMetalMat);
+      strut.position.set(side * 0.88, -0.35, 0.45);
+      strut.rotation.y = side * 0.32;
+      strut.rotation.x = 0.16;
+      this.jawGroup.add(strut);
+    });
+
+    // ==========================================
+    // 9. PESCOÇO & COLUNA ESPINHAL ROBÓTICA
+    // ==========================================
+    const neckGeo = new THREE.CylinderGeometry(0.65, 0.8, 1.15, 20);
+    const neck = new THREE.Mesh(neckGeo, this.darkMetalMat);
+    neck.position.set(0, -1.25, -0.2);
+    this.headGroup.add(neck);
+
+    // Pistões hidráulicos do pescoço
+    [-1, 1].forEach(side => {
+      const pistonGeo = new THREE.CylinderGeometry(0.11, 0.11, 0.95, 14);
+      const piston = new THREE.Mesh(pistonGeo, this.metalPlateMat);
+      piston.position.set(side * 0.78, -1.18, 0.02);
+      piston.rotation.z = side * 0.22;
+      this.headGroup.add(piston);
+    });
+  }
+
+  buildParticleCloud() {
+    // 1.500 Partículas Holográficas Volumétricas Flutuando no Espaço ao Redor da Cabeça
+    const pCount = 1500;
+    const posArray = new Float32Array(pCount * 3);
+    this.particleOriginalPos = new Float32Array(pCount * 3);
+    this.particleSpeeds = new Float32Array(pCount);
+
+    for (let i = 0; i < pCount; i++) {
       const theta = Math.random() * Math.PI * 2;
       const phi = (Math.random() - 0.5) * Math.PI;
+      const radius = 1.9 + Math.random() * 2.6;
 
-      this.ambientParticles.push({
-        baseX: radius * Math.cos(phi) * Math.sin(theta),
-        baseY: radius * Math.sin(phi) + (Math.random() - 0.5) * 80,
-        baseZ: radius * Math.cos(phi) * Math.cos(theta),
-        speed: 0.2 + Math.random() * 0.6,
-        size: 1.0 + Math.random() * 2.2,
-        phase: Math.random() * Math.PI * 2,
-        glow: Math.random() > 0.6,
-      });
+      const x = radius * Math.cos(phi) * Math.sin(theta);
+      const y = radius * Math.sin(phi);
+      const z = radius * Math.cos(phi) * Math.cos(theta);
+
+      posArray[i * 3] = x;
+      posArray[i * 3 + 1] = y;
+      posArray[i * 3 + 2] = z;
+
+      this.particleOriginalPos[i * 3] = x;
+      this.particleOriginalPos[i * 3 + 1] = y;
+      this.particleOriginalPos[i * 3 + 2] = z;
+
+      this.particleSpeeds[i] = 0.3 + Math.random() * 0.7;
     }
+
+    const pGeo = new THREE.BufferGeometry();
+    pGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    this.particleSystem = new THREE.Points(pGeo, this.particleMat);
+    this.scene.add(this.particleSystem);
+  }
+
+  buildHolographicHalo() {
+    // Anel orbital de telemetria girando continuamente
+    const haloGeo = new THREE.TorusGeometry(2.5, 0.018, 8, 90);
+    const haloMesh = new THREE.Mesh(haloGeo, this.glowMat);
+    haloMesh.rotation.x = Math.PI * 0.44;
+    haloMesh.rotation.y = 0.2;
+    this.scene.add(haloMesh);
+    this.haloRing = haloMesh;
+
+    // Segundo anel inclinado menor
+    const innerHaloGeo = new THREE.TorusGeometry(2.1, 0.012, 6, 70);
+    const innerHaloMesh = new THREE.Mesh(innerHaloGeo, this.wireframeMat);
+    innerHaloMesh.rotation.x = -Math.PI * 0.38;
+    innerHaloMesh.rotation.z = 0.3;
+    this.scene.add(innerHaloMesh);
+    this.innerHaloRing = innerHaloMesh;
+  }
+
+  initLighting() {
+    // 1. Luz Ambiente
+    this.ambientLight = new THREE.AmbientLight(0x0a1420, 1.4);
+    this.scene.add(this.ambientLight);
+
+    // 2. Luz Direcional Principal (Key Light)
+    this.keyLight = new THREE.DirectionalLight(0xe0f7ff, 2.2);
+    this.keyLight.position.set(2, 4, 5);
+    this.scene.add(this.keyLight);
+
+    // 3. Rim Light Esquerda (Cyan)
+    this.rimLightL = new THREE.PointLight(0x00f0ff, 2.5, 8.0);
+    this.rimLightL.position.set(-3.5, 2.0, 1.5);
+    this.scene.add(this.rimLightL);
+
+    // 4. Rim Light Direita (Blue)
+    this.rimLightR = new THREE.PointLight(0x0077ff, 2.5, 8.0);
+    this.rimLightR.position.set(3.5, -1.0, 1.5);
+    this.scene.add(this.rimLightR);
   }
 
   animate() {
     requestAnimationFrame(() => this.animate());
 
-    this.time += 0.035;
-    this.ctx.clearRect(0, 0, this.width, this.height);
+    this.time += 0.032;
 
-    // 1. Controle da Articulação da Boca em Função do Estado de Fala
+    // 1. Articulação da Mandíbula e Lip-Sync ao Falar
     if (this.state === 'SPEAKING') {
       const t = this.time;
-      // Oscilação combinada simulando fala articulada natural e pausas
-      const speechWave = Math.sin(t * 11.5) * 0.45 + Math.sin(t * 18.2) * 0.35 + Math.sin(t * 6.5) * 0.20;
-      const syllableBurst = Math.max(0, Math.sin(t * 14.0)) * (0.65 + 0.35 * Math.sin(t * 4.8));
-      const naturalSpeech = Math.max(0, (speechWave + syllableBurst) * 0.95);
+      // Oscilador harmônico multiespectral com cadência orgânica de fala
+      const speechWave = Math.sin(t * 12.0) * 0.45 + Math.sin(t * 19.5) * 0.35 + Math.sin(t * 7.2) * 0.20;
+      const syllableBurst = Math.max(0, Math.sin(t * 15.0)) * (0.7 + 0.3 * Math.sin(t * 4.5));
+      const naturalSpeech = Math.max(0, (speechWave + syllableBurst) * 1.0);
 
-      // Pulso extra caso evento onboundary tenha sido disparado
-      const pulseDecay = Math.max(0, 1 - (Date.now() - this.lastSpeechPulse) / 220);
-      this.targetMouthOpen = Math.min(1.0, Math.max(naturalSpeech, pulseDecay * 0.90));
+      // Impulso extra caso evento onboundary tenha sido emitido pelo TTS
+      const pulseDecay = Math.max(0, 1 - (Date.now() - this.lastSpeechPulse) / 240);
+      this.targetMouthOpen = Math.min(1.0, Math.max(naturalSpeech, pulseDecay * 0.95));
+
+      // Iluminação interna da cavidade bucal ao falar
+      this.mouthLight.intensity = this.mouthOpen * 3.2;
+
+      // Barras de equalizador de voz dentro da boca
+      this.audioBars.forEach((bar, idx) => {
+        const barH = 0.5 + Math.sin(t * 24 + idx * 1.4) * 0.5;
+        bar.scale.y = Math.max(0.15, this.mouthOpen * (0.7 + barH * 2.3));
+      });
     } else {
       this.targetMouthOpen = 0.0;
+      this.mouthLight.intensity = 0.0;
+      this.audioBars.forEach(bar => { bar.scale.y = 0.15; });
     }
 
-    // Interpolação suave para abertura e fechamento orgânico
-    this.mouthOpen += (this.targetMouthOpen - this.mouthOpen) * 0.32;
+    // Interpolação suave e elástica da mandíbula
+    this.mouthOpen += (this.targetMouthOpen - this.mouthOpen) * 0.36;
+    this.jawGroup.rotation.x = -this.mouthOpen * 0.38; // Movimento amplo, claro e visível da boca!
+    this.jawGroup.position.z = 0.35 + this.mouthOpen * 0.08;
 
-    // 2. Interpolação de Rotação 3D com Suavidade
-    this.rotX += (this.targetRotX - this.rotX) * 0.08;
-    this.rotY += (this.targetRotY - this.rotY) * 0.08;
+    // 2. Rastreamento Suave do Cursor (Parallax 3D da Cabeça)
+    this.headGroup.rotation.y += (this.targetRotY - this.headGroup.rotation.y) * 0.07;
+    this.headGroup.rotation.x += (this.targetRotX - this.headGroup.rotation.x) * 0.07;
 
-    // Adiciona respiração natural e flutuação em standby
-    const idleYaw = Math.sin(this.time * 0.7) * 0.045;
-    const idlePitch = Math.cos(this.time * 0.9) * 0.025;
-    const currentRotY = this.rotY + idleYaw;
-    const currentRotX = this.rotX + idlePitch;
+    // Respiração / Flutuação Mecânica
+    this.headGroup.position.y = 0.1 + Math.sin(this.time * 1.6) * 0.10;
 
-    // Cores temáticas por estado do sistema
-    const colors = this.getStateColors();
-
-    // 3. Projeção dos Nós Faciais
-    const cosY = Math.cos(currentRotY);
-    const sinY = Math.sin(currentRotY);
-    const cosX = Math.cos(currentRotX);
-    const sinX = Math.sin(currentRotX);
-
-    for (let i = 0; i < this.nodes.length; i++) {
-      const node = this.nodes[i];
-      let curX = node.baseX;
-      let curY = node.baseY;
-      let curZ = node.baseZ;
-
-      // Deslocamento Biomecânico da Boca e Mandíbula
-      if (node.isMouthLower) {
-        curY += this.mouthOpen * 25 * (node.mouthWeight || 1.0);
-        curZ += this.mouthOpen * 5;
-      }
-      if (node.isMouthInner) {
-        curY += this.mouthOpen * 20 * (node.mouthWeight || 1.0);
-      }
-      if (node.isMouthCorner) {
-        curX += (node.baseX > 0 ? -1 : 1) * (this.mouthOpen * 3.5);
-        curY += this.mouthOpen * 6;
-      }
-      if (node.isJaw) {
-        curY += this.mouthOpen * 15 * (node.jawWeight || 1.0);
-        curZ += this.mouthOpen * 4;
-      }
-      if (node.isChin) {
-        curY += this.mouthOpen * 24 * (node.chinWeight || 1.0);
-        curZ += this.mouthOpen * 6;
-      }
-
-      // Parallax dos Sensores Ópticos (olhar do robô)
-      if (node.isPupil) {
-        curX += this.lookOffsetX * 3.8;
-        curY += this.lookOffsetY * 3.8;
-      }
-
-      // Respiração vertical global suave
-      curY += Math.sin(this.time * 1.6) * 4.5;
-
-      // Rotação Y (Yaw)
-      const x1 = curX * cosY + curZ * sinY;
-      const z1 = -curX * sinY + curZ * cosY;
-
-      // Rotação X (Pitch)
-      const y2 = curY * cosX - z1 * sinX;
-      const z2 = curY * sinX + z1 * cosX;
-
-      // Projeção em Perspectiva
-      const scale = this.fov / (this.fov + z2 + this.cameraDistance);
-      node.projX = this.centerX + x1 * scale;
-      node.projY = this.centerY + y2 * scale;
-      node.projScale = scale;
-      node.projZ = z2;
+    // Pupilas acompanham a mira do mouse
+    if (this.eyes) {
+      this.eyes.forEach(eye => {
+        eye.pupil.position.x = this.normMouseX * 0.065;
+        eye.pupil.position.y = -this.normMouseY * 0.065;
+      });
     }
 
-    // 4. Renderização do Halo Holográfico Orbital de Telemetria
-    this.drawHolographicHalo(colors, currentRotY, currentRotX);
-
-    // 5. Renderização das Arestas Poligonais (Linhas de Conexão Cyber)
-    this.drawWireframeEdges(colors);
-
-    // 6. Feixe Acústico de Fala dentro da Boca (Waveform Laser)
-    if (this.mouthOpen > 0.08) {
-      this.drawMouthAcousticWave(colors);
+    // Rotação dos anéis das orelhas
+    if (this.earRings) {
+      this.earRings.forEach((ring, idx) => {
+        ring.rotation.z += (idx === 0 ? 0.03 : -0.03);
+      });
     }
 
-    // 7. Renderização dos Nós Faciais com Bloom e Glow
-    this.drawFaceNodes(colors);
-
-    // 8. Renderização das Partículas Orbitais (Nuvem Quântica)
-    this.drawAmbientParticles(colors, cosY, sinY, cosX, sinX);
-  }
-
-  getStateColors() {
-    switch (this.state) {
-      case 'LISTENING':
-        return {
-          primary: '#ff2a6d',
-          secondary: '#ff7700',
-          glow: 'rgba(255, 42, 109, 0.8)',
-          line: 'rgba(255, 42, 109, 0.22)',
-          particle: '#ff5588',
-        };
-      case 'THINKING':
-        return {
-          primary: '#a855f7',
-          secondary: '#00f0ff',
-          glow: 'rgba(168, 85, 247, 0.8)',
-          line: 'rgba(168, 85, 247, 0.25)',
-          particle: '#c084fc',
-        };
-      case 'SPEAKING':
-        return {
-          primary: '#00ffcc',
-          secondary: '#38bdf8',
-          glow: 'rgba(0, 255, 204, 0.9)',
-          line: 'rgba(0, 255, 204, 0.28)',
-          particle: '#7dd3fc',
-        };
-      case 'CODING':
-        return {
-          primary: '#ffb700',
-          secondary: '#ff4400',
-          glow: 'rgba(255, 183, 0, 0.85)',
-          line: 'rgba(255, 183, 0, 0.25)',
-          particle: '#fde047',
-        };
-      case 'STANDBY':
-      default:
-        return {
-          primary: '#00f0ff',
-          secondary: '#0077ff',
-          glow: 'rgba(0, 240, 255, 0.75)',
-          line: 'rgba(0, 240, 255, 0.20)',
-          particle: '#38bdf8',
-        };
-    }
-  }
-
-  drawHolographicHalo(colors, rotY, rotX) {
-    const ctx = this.ctx;
-    ctx.save();
-    
-    // Anel orbital inclinado girando ao redor da cabeça
-    const haloRadius = 145;
-    const haloAngle = this.time * 0.45;
-    const haloCenterY = this.centerY + Math.sin(this.time * 1.6) * 4.5 - 15;
-
-    ctx.lineWidth = 1.0;
-    ctx.strokeStyle = colors.line;
-    ctx.shadowBlur = 6;
-    ctx.shadowColor = colors.glow;
-
-    // Elipse inclinada 3D
-    ctx.beginPath();
-    ctx.ellipse(
-      this.centerX,
-      haloCenterY,
-      haloRadius * (1 + rotY * 0.15),
-      haloRadius * 0.32,
-      rotY * 0.2,
-      0,
-      Math.PI * 2
-    );
-    ctx.stroke();
-
-    // Marcadores de tick rotativos no anel
-    const numTicks = 16;
-    for (let i = 0; i < numTicks; i++) {
-      const a = haloAngle + (i * Math.PI * 2) / numTicks;
-      const tx = this.centerX + Math.cos(a) * haloRadius * (1 + rotY * 0.15);
-      const ty = haloCenterY + Math.sin(a) * (haloRadius * 0.32);
-      
-      const isCard = i % 4 === 0;
-      ctx.fillStyle = isCard ? colors.primary : colors.secondary;
-      ctx.beginPath();
-      ctx.arc(tx, ty, isCard ? 2.2 : 1.2, 0, Math.PI * 2);
-      ctx.fill();
+    // Pulso do núcleo neural na testa
+    if (this.neuralCore) {
+      const corePulse = 1.0 + Math.sin(this.time * 4) * 0.15;
+      this.neuralCore.scale.setScalar(corePulse);
     }
 
-    ctx.restore();
-  }
+    // 3. Animação da Nuvem de Partículas Flutuantes
+    if (this.particleSystem) {
+      const pos = this.particleSystem.geometry.attributes.position.array;
+      const count = pos.length / 3;
 
-  drawWireframeEdges(colors) {
-    const ctx = this.ctx;
-    ctx.save();
+      for (let i = 0; i < count; i++) {
+        const speed = this.particleSpeeds[i];
+        const origX = this.particleOriginalPos[i * 3];
+        const origY = this.particleOriginalPos[i * 3 + 1];
+        const origZ = this.particleOriginalPos[i * 3 + 2];
 
-    for (let i = 0; i < this.edges.length; i++) {
-      const edge = this.edges[i];
-      const n1 = this.nodes[edge.i1];
-      const n2 = this.nodes[edge.i2];
+        // Movimento orbital fluido e ondulação tridimensional
+        const angle = this.time * 0.12 * speed + i * 0.02;
+        const radius = Math.hypot(origX, origZ);
 
-      // Profundidade média da linha
-      const avgZ = (n1.projZ + n2.projZ) / 2;
-      const alpha = Math.max(0.08, Math.min(0.65, 0.35 + avgZ * 0.003));
-
-      ctx.beginPath();
-      ctx.moveTo(n1.projX, n1.projY);
-      ctx.lineTo(n2.projX, n2.projY);
-
-      ctx.strokeStyle = colors.line;
-      ctx.globalAlpha = alpha;
-      ctx.lineWidth = 1.0;
-      ctx.stroke();
-    }
-
-    ctx.restore();
-  }
-
-  drawMouthAcousticWave(colors) {
-    // Renderiza uma grade/onda luminosa dentro da boca que vibra durante a fala
-    const ctx = this.ctx;
-    ctx.save();
-
-    const nLeft = this.nodes.find(n => n.id === 'mouth_corner_l');
-    const nRight = this.nodes.find(n => n.id === 'mouth_corner_r');
-    const nTop = this.nodes.find(n => n.id === 'lip_top_c');
-    const nBot = this.nodes.find(n => n.id === 'lip_bot_c');
-
-    if (nLeft && nRight && nTop && nBot) {
-      const midX = (nLeft.projX + nRight.projX) / 2;
-      const midY = (nTop.projY + nBot.projY) / 2;
-      const mouthWidth = Math.abs(nRight.projX - nLeft.projX);
-      const mouthHeight = Math.abs(nBot.projY - nTop.projY);
-
-      // Onda acústica oscilante
-      ctx.beginPath();
-      ctx.strokeStyle = colors.primary;
-      ctx.lineWidth = 1.8;
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = colors.glow;
-
-      const segments = 12;
-      for (let s = 0; s <= segments; s++) {
-        const u = s / segments;
-        const px = nLeft.projX + (nRight.projX - nLeft.projX) * u;
-        const wave = Math.sin(this.time * 22 + s * 1.4) * (mouthHeight * 0.38);
-        const py = midY + wave;
-        if (s === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
+        pos[i * 3] = Math.cos(angle) * radius;
+        pos[i * 3 + 1] = origY + Math.sin(this.time * 1.5 + i) * 0.14;
+        pos[i * 3 + 2] = Math.sin(angle) * radius;
       }
-      ctx.stroke();
-
-      // Brilho interior
-      const grad = ctx.createRadialGradient(midX, midY, 1, midX, midY, mouthHeight * 1.2);
-      grad.addColorStop(0, colors.glow);
-      grad.addColorStop(1, 'transparent');
-      ctx.fillStyle = grad;
-      ctx.fillRect(midX - mouthWidth * 0.4, midY - mouthHeight, mouthWidth * 0.8, mouthHeight * 2);
+      this.particleSystem.geometry.attributes.position.needsUpdate = true;
     }
 
-    ctx.restore();
-  }
-
-  drawFaceNodes(colors) {
-    const ctx = this.ctx;
-
-    // Ordena os nós por profundidade Z para profundidade visual realista
-    const sortedNodes = [...this.nodes].sort((a, b) => a.projZ - b.projZ);
-
-    for (let i = 0; i < sortedNodes.length; i++) {
-      const node = sortedNodes[i];
-      const scale = node.projScale;
-      const zNorm = Math.max(0.3, Math.min(1.0, 0.65 + node.projZ * 0.0035));
-
-      ctx.save();
-      ctx.translate(node.projX, node.projY);
-
-      if (node.isPupil) {
-        // Sensor Óptico / Pupila Brilhante com anel biônico
-        const pupilRadius = 3.8 * scale;
-        ctx.shadowBlur = 14;
-        ctx.shadowColor = colors.glow;
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(0, 0, pupilRadius, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Anel do sensor
-        ctx.strokeStyle = colors.primary;
-        ctx.lineWidth = 1.4;
-        ctx.beginPath();
-        ctx.arc(0, 0, pupilRadius + 3.0 * scale, 0, Math.PI * 2);
-        ctx.stroke();
-
-      } else if (node.isCore) {
-        // Núcleo Neural da Testa
-        const coreSize = 2.8 * scale;
-        ctx.shadowBlur = 12;
-        ctx.shadowColor = colors.glow;
-        ctx.fillStyle = colors.secondary;
-        ctx.beginPath();
-        ctx.arc(0, 0, coreSize, 0, Math.PI * 2);
-        ctx.fill();
-
-      } else if (node.isThroat) {
-        // Transdutor de Voz no Pescoço
-        const pulse = this.state === 'SPEAKING' ? 1 + Math.sin(this.time * 16) * 0.4 : 1.0;
-        const throatSize = 3.6 * scale * pulse;
-        ctx.shadowBlur = 14 * pulse;
-        ctx.shadowColor = colors.glow;
-        ctx.fillStyle = colors.primary;
-        ctx.beginPath();
-        ctx.arc(0, 0, throatSize, 0, Math.PI * 2);
-        ctx.fill();
-
-      } else if (node.isEye) {
-        // Bordas dos olhos
-        const r = 2.2 * scale;
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = colors.glow;
-        ctx.fillStyle = colors.primary;
-        ctx.beginPath();
-        ctx.arc(0, 0, r, 0, Math.PI * 2);
-        ctx.fill();
-
-      } else if (node.isMouthLower || node.isMouthUpper || node.isMouthCorner) {
-        // Pontos articulados dos lábios
-        const r = (node.isMouthLower ? 2.4 : 2.0) * scale;
-        ctx.shadowBlur = this.state === 'SPEAKING' ? 10 : 5;
-        ctx.shadowColor = colors.glow;
-        ctx.fillStyle = this.state === 'SPEAKING' ? '#ffffff' : colors.primary;
-        ctx.beginPath();
-        ctx.arc(0, 0, r, 0, Math.PI * 2);
-        ctx.fill();
-
-      } else {
-        // Nó padrão da carcaça do robô
-        const r = (1.6 + (node.baseZ > 50 ? 0.6 : 0)) * scale;
-        ctx.shadowBlur = 6;
-        ctx.shadowColor = colors.glow;
-        ctx.fillStyle = colors.primary;
-        ctx.globalAlpha = zNorm;
-        ctx.beginPath();
-        ctx.arc(0, 0, r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      ctx.restore();
+    // Rotação dos Halos Holográficos
+    if (this.haloRing) {
+      this.haloRing.rotation.z += 0.005;
     }
-  }
-
-  drawAmbientParticles(colors, cosY, sinY, cosX, sinX) {
-    const ctx = this.ctx;
-    ctx.save();
-
-    for (let i = 0; i < this.ambientParticles.length; i++) {
-      const p = this.ambientParticles[i];
-
-      // Movimentação orbital suave das partículas
-      const ang = this.time * 0.15 * p.speed + p.phase;
-      const dist = Math.hypot(p.baseX, p.baseZ);
-      const curX = Math.cos(ang) * dist;
-      const curZ = Math.sin(ang) * dist;
-      const curY = p.baseY + Math.sin(this.time * 1.2 + p.phase) * 12;
-
-      // Rotação Y
-      const x1 = curX * cosY + curZ * sinY;
-      const z1 = -curX * sinY + curZ * cosY;
-
-      // Rotação X
-      const y2 = curY * cosX - z1 * sinX;
-      const z2 = curY * sinX + z1 * cosX;
-
-      const scale = this.fov / (this.fov + z2 + this.cameraDistance);
-      const px = this.centerX + x1 * scale;
-      const py = this.centerY + y2 * scale;
-
-      const alpha = Math.max(0.12, Math.min(0.85, 0.45 + z2 * 0.003));
-      const pSize = p.size * scale;
-
-      ctx.beginPath();
-      ctx.arc(px, py, pSize, 0, Math.PI * 2);
-      ctx.fillStyle = p.glow ? colors.primary : colors.particle;
-      ctx.globalAlpha = alpha;
-      if (p.glow) {
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = colors.glow;
-      }
-      ctx.fill();
+    if (this.innerHaloRing) {
+      this.innerHaloRing.rotation.z -= 0.008;
     }
 
-    ctx.restore();
+    // 4. Renderização do Frame WebGL
+    this.renderer.render(this.scene, this.camera);
   }
 }
 
