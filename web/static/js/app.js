@@ -577,8 +577,44 @@ document.addEventListener('DOMContentLoaded', () => {
   updateTelemetry();
   setInterval(updateTelemetry, 3500);
 
-  // Mensagem inicial de boas-vindas do Jarvis
-  setTimeout(() => {
-    speakText('Opa, tudo pronto por aqui! Em que posso te ajudar hoje?');
-  }, 1000);
+  // Gerador de saudações dinâmicas e variadas ao iniciar (nunca repete a última)
+  function initDynamicGreeting() {
+    const hour = new Date().getHours();
+    const periodo = hour >= 5 && hour < 12 ? 'Bom dia' : (hour >= 12 && hour < 18 ? 'Boa tarde' : 'Boa noite');
+
+    const greetings = [
+      `${periodo}, chefe! Sistemas 100% online e turbinados. Qual é a boa de hoje?`,
+      `E aí, tudo na paz? Já liguei os motores por aqui. Manda ver no que precisar!`,
+      `${periodo}! Processadores aquecidos e memória afiada. Vamos pesquisar, otimizar o PC ou programar algo novo?`,
+      `Opa, na escuta! Tudo rodando liso por aqui. Qual vai ser a nossa primeira missão de hoje?`,
+      `Fala, parceiro! ${periodo}! Já deixei o radar ligado e tô pronto pra qualquer parada. O que manda?`,
+      `${periodo}! Reator Arc estabilizado e sistemas neurais a postos. Como posso facilitar o seu dia hoje?`,
+      `Salve, chefe! Tudo conectado e operando em capacidade máxima. Bora colocar a mão na massa?`,
+      `${periodo}! Estava só esperando você chamar. Me diz aí: o que vamos resolver agora?`,
+      `Opa, sistemas online! Já dei uma conferida nos circuitos e tá tudo em ordem. No que posso te ajudar?`,
+      `${periodo}, chefe! Inteligência local ativa e pronta pro combate. Só falar ou digitar aí embaixo!`
+    ];
+
+    let lastIdx = parseInt(localStorage.getItem('jarvis_last_greeting_idx') || '-1', 10);
+    let idx = Math.floor(Math.random() * greetings.length);
+    if (idx === lastIdx) {
+      idx = (idx + 1) % greetings.length;
+    }
+    localStorage.setItem('jarvis_last_greeting_idx', String(idx));
+
+    const chosenGreeting = greetings[idx];
+
+    // Atualiza o balão inicial de boas-vindas no chat
+    const firstBubble = chatMessages.querySelector('.msg.jarvis .msg-bubble');
+    if (firstBubble) {
+      firstBubble.innerHTML = `${chosenGreeting} <span style="opacity: 0.75; font-size: 0.88em;">(Dica: para programar, use <b>autoprog</b>)</span>`;
+    }
+
+    // Fala a saudação escolhida com a voz neural
+    setTimeout(() => {
+      speakText(chosenGreeting);
+    }, 800);
+  }
+
+  initDynamicGreeting();
 });

@@ -4,6 +4,8 @@ Gerencia chamadas de API, streaming de tokens e histórico da conversa.
 """
 
 import json
+import random
+from datetime import datetime
 from typing import Generator, List, Dict, Any, Optional
 import requests
 
@@ -11,8 +13,19 @@ from core.config import (
     OLLAMA_HOST,
     DEFAULT_MODEL,
     DEFAULT_TEMPERATURE,
+    DEFAULT_TOP_P,
     JARVIS_SYSTEM_PROMPT,
 )
+
+GREETING_VARIATION_STYLES = [
+    "Cumprimente de forma animada e bem-humorada, comentando como o dia está rendendo e perguntando qual é a missão de agora.",
+    "Dê um alô descontraído estilo parceiro de tecnologia, faça uma piadinha leve sobre os circuitos estarem tinindo e pergunte no que pode ajudar.",
+    "Responda com bom humor e energia, dizendo que já estava a postos esperando um comando interessante hoje.",
+    "Cumprimente de um jeito irreverente e amigável, perguntando se hoje vamos resolver problemas sérios, pesquisar algo curioso ou otimizar a máquina.",
+    "Dê boas-vindas com carisma e descontração, mencionando o período do dia atual e dizendo que está 100% ligado pra qualquer parada.",
+    "Mande uma saudação curta, criativa e cheia de personalidade, sem usar clichês, mostrando prontidão imediata.",
+    "Cumprimente como um amigo próximo e esperto, fazendo um comentário leve sobre estar com os processadores aquecidos e prontos pra ação.",
+]
 
 
 class LLMClient:
@@ -66,7 +79,26 @@ class LLMClient:
         Gera tokens em tempo real conforme são recebidos da LLM.
         Retorna a resposta completa consolidada.
         """
-        self.history.append({"role": "user", "content": prompt})
+        # Verifica se é uma saudação curta para injetar variedade dinâmica
+        clean_msg = prompt.strip().lower().rstrip("?!.")
+        greeting_words = {
+            "oi", "olá", "ola", "opa", "e aí", "e ai", "eae", "fala", "salve",
+            "bom dia", "boa tarde", "boa noite", "oi jarvis", "olá jarvis",
+            "ola jarvis", "fala jarvis", "e aí jarvis", "e ai jarvis", "tudo bem",
+            "oi tudo bem", "opa jarvis"
+        }
+        effective_prompt = prompt
+        if clean_msg in greeting_words or len(clean_msg) <= 12 and any(w in clean_msg for w in ["oi", "olá", "ola", "opa", "eae", "salve"]):
+            hour = datetime.now().hour
+            periodo = "manhã" if 5 <= hour < 12 else ("tarde" if 12 <= hour < 18 else ("noite" if 18 <= hour < 24 else "madrugada"))
+            style_hint = random.choice(GREETING_VARIATION_STYLES)
+            effective_prompt = (
+                f"{prompt}\n\n"
+                f"[DIRETRIZ INTERNA DE VARIAÇÃO - NÃO LEIA ISTO EM VOZ ALTA: Agora é {periodo} ({datetime.now().strftime('%H:%M')}). "
+                f"{style_hint} Seja espontâneo e diferente das respostas anteriores!]"
+            )
+
+        self.history.append({"role": "user", "content": effective_prompt})
 
         # Mantém histórico focado (sistema + até 6 mensagens mais recentes)
         if len(self.history) > 7:
@@ -78,6 +110,9 @@ class LLMClient:
             "stream": True,
             "options": {
                 "temperature": temperature,
+                "top_p": DEFAULT_TOP_P,
+                "repeat_penalty": 1.18,
+                "seed": random.randint(1, 2_000_000_000),
             },
         }
 
