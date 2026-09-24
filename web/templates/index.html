@@ -90,7 +90,20 @@
             • Síntese Neural: Ativa<br>
             • Conexão Neural: Local (100% Offline)<br>
             • Auto-Programação: <span style="color: #ffb700;">Protocolo "autoprog"</span><br>
-            • Privacidade: Criptografia Local
+            • Memória Córtex: Persistente SQLite
+          </div>
+        </div>
+
+        <!-- BANCO DE MEMÓRIA CÓRTEX -->
+        <div class="cortex-memory-block">
+          <div class="cortex-header">
+            <div class="cortex-title">
+              <span>MEMÓRIA CÓRTEX</span>
+            </div>
+            <span id="memoryCountBadge" class="memory-badge">0 FATOS</span>
+          </div>
+          <div id="memoryListContainer" class="memory-list-container">
+            <div class="memory-empty">Nenhum fato memorizado ainda.<br>Diga: "Jarvis, lembre-se que..."</div>
           </div>
         </div>
 
@@ -129,6 +142,8 @@
         <div class="quick-chips">
           <button class="chip-btn" data-cmd="Qual o status geral dos meus sistemas?">Status Geral</button>
           <button class="chip-btn" data-cmd="Que horas e qual a data de hoje?">Data e Hora</button>
+          <button class="chip-btn" style="border-color: rgba(0, 240, 255, 0.4); color: var(--cyan-glow);" data-cmd="Jarvis, o que você lembra sobre mim?">🧠 O que lembra?</button>
+          <button class="chip-btn" style="border-color: rgba(0, 255, 157, 0.4); color: var(--green);" data-cmd="Jarvis, lembre-se que meu nome é Leandro e programo em Python">💾 Lembre meu nome</button>
           <button class="chip-btn" style="border-color: rgba(255,183,0,0.5); color: #ffb700;" data-cmd="Jarvis, protocolo autoprog: adicione um comando para abrir o YouTube no navegador">⚡ Autoprog: YouTube</button>
           <button class="chip-btn" style="border-color: rgba(255,51,102,0.5); color: #ff7788;" data-cmd="Jarvis, protocolo autoprog: desfaça a última alteração">↺ Autoprog: Desfazer</button>
         </div>

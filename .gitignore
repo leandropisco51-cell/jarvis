@@ -39,3 +39,8 @@ env/
 
 # Logs
 *.log
+
+# J.A.R.V.I.S. Local Database & Memory
+data/*.db
+data/*.sqlite
+data/

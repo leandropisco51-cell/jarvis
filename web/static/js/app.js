@@ -207,6 +207,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 jarvisBubble.innerHTML = `<span style="color: #ffb700; font-family: var(--font-mono); font-size: 0.85rem;">⚡ [AUTO-EVOLUÇÃO]: ${parsed.status}</span><span class="cursor-blink"></span>`;
                 chatMessages.scrollTop = chatMessages.scrollHeight;
               }
+              if (parsed.memory_updated) {
+                loadMemories();
+              }
               if (parsed.token) {
                 fullResponse += parsed.token;
                 jarvisBubble.innerHTML = fullResponse.replace(/\n/g, '<br>') + '<span class="cursor-blink"></span>';
@@ -327,6 +330,71 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // 7. Gerenciador de Memória Córtex
+  async function loadMemories() {
+    try {
+      const res = await fetch('/api/memories');
+      if (!res.ok) return;
+      const data = await res.json();
+      const container = document.getElementById('memoryListContainer');
+      const badge = document.getElementById('memoryCountBadge');
+      const memories = data.memories || [];
+
+      if (badge) {
+        badge.textContent = `${memories.length} ${memories.length === 1 ? 'FATO' : 'FATOS'}`;
+      }
+
+      if (!container) return;
+
+      if (memories.length === 0) {
+        container.innerHTML = '<div class="memory-empty">Nenhum fato memorizado ainda.<br>Diga: "Jarvis, lembre-se que..."</div>';
+        return;
+      }
+
+      container.innerHTML = '';
+      memories.forEach(mem => {
+        const item = document.createElement('div');
+        item.className = 'memory-item';
+        item.innerHTML = `
+          <div class="memory-body">
+            <span class="memory-cat-tag">[${mem.category}]</span>
+            <span class="memory-text">${escapeHtml(mem.content)}</span>
+          </div>
+          <button class="memory-del-btn" title="Excluir lembrança" data-id="${mem.id}">&times;</button>
+        `;
+        container.appendChild(item);
+      });
+
+      // Configura evento de exclusão
+      container.querySelectorAll('.memory-del-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const id = btn.getAttribute('data-id');
+          await deleteMemory(id);
+        });
+      });
+    } catch (e) {
+      console.warn('Falha ao carregar memórias:', e);
+    }
+  }
+
+  async function deleteMemory(id) {
+    try {
+      const res = await fetch(`/api/memories/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        loadMemories();
+      }
+    } catch (e) {
+      console.error('Falha ao deletar memória:', e);
+    }
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
   // Ações rápidas dos chips
   document.querySelectorAll('.chip-btn').forEach(chip => {
     chip.addEventListener('click', () => {
@@ -339,6 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initTTS();
   initSTT();
   loadModels();
+  loadMemories();
   updateTelemetry();
   setInterval(updateTelemetry, 3500);
 
