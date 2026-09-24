@@ -29,7 +29,6 @@ class CyberFace {
     this.initMaterials();
     this.buildRobotFace();
     this.buildParticleCloud();
-    this.buildHolographicHalo();
     this.initLighting();
 
     this.resize();
@@ -47,7 +46,7 @@ class CyberFace {
     const height = rect.height || 440;
 
     this.camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
-    this.camera.position.set(0, 0, 7.2);
+    this.camera.position.set(0, 0, 6.2);
 
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
@@ -568,24 +567,6 @@ class CyberFace {
     this.scene.add(this.particleSystem);
   }
 
-  buildHolographicHalo() {
-    // Anel orbital de telemetria girando continuamente
-    const haloGeo = new THREE.TorusGeometry(2.5, 0.018, 8, 90);
-    const haloMesh = new THREE.Mesh(haloGeo, this.glowMat);
-    haloMesh.rotation.x = Math.PI * 0.44;
-    haloMesh.rotation.y = 0.2;
-    this.scene.add(haloMesh);
-    this.haloRing = haloMesh;
-
-    // Segundo anel inclinado menor
-    const innerHaloGeo = new THREE.TorusGeometry(2.1, 0.012, 6, 70);
-    const innerHaloMesh = new THREE.Mesh(innerHaloGeo, this.wireframeMat);
-    innerHaloMesh.rotation.x = -Math.PI * 0.38;
-    innerHaloMesh.rotation.z = 0.3;
-    this.scene.add(innerHaloMesh);
-    this.innerHaloRing = innerHaloMesh;
-  }
-
   initLighting() {
     // 1. Luz Ambiente
     this.ambientLight = new THREE.AmbientLight(0x0a1420, 1.4);
@@ -691,14 +672,6 @@ class CyberFace {
         pos[i * 3 + 2] = Math.sin(angle) * radius;
       }
       this.particleSystem.geometry.attributes.position.needsUpdate = true;
-    }
-
-    // Rotação dos Halos Holográficos
-    if (this.haloRing) {
-      this.haloRing.rotation.z += 0.005;
-    }
-    if (this.innerHaloRing) {
-      this.innerHaloRing.rotation.z -= 0.008;
     }
 
     // 4. Renderização do Frame WebGL
