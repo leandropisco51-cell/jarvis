@@ -14,7 +14,7 @@ def search_web(query: str, max_results: int = 4) -> List[Dict[str, str]]:
     """Realiza pesquisa web em tempo real no DuckDuckGo no mundo real."""
     try:
         clean_q = re.sub(
-            r"\b(jarvis|por favor|pesquise|pesquisa|pesquise na internet|procure por|procure|busque|me diga sobre|o que você sabe sobre)\b",
+            r"\b(jarvis|por favor|pesquise|pesquisa|pesquise na internet|procure por|procure|busque|me diga sobre|o que você sabe sobre|me fale sobre|fale sobre|informações sobre|informacoes sobre|dados sobre|o que é o medicamento|o que é o remédio|o que é|o que e)\b",
             "",
             query,
             flags=re.IGNORECASE,
@@ -183,13 +183,20 @@ def enrich_prompt_with_live_data(prompt: str) -> Tuple[str, Optional[str]]:
             )
             return prompt + context, "📰 Coletando notícias reais do mundo..."
 
-    # 3. Caso: Pesquisa geral na internet / dados externos
+    # 3. Caso: Pesquisa geral na internet / medicamentos / dados externos
     search_triggers = [
         "pesquise", "pesquisa", "procure", "busque", "quem é", "quem e", "quem foi",
         "o que é", "o que e", "qual o", "qual a", "quanto custa", "como funciona",
         "resultado", "informações sobre", "informacoes sobre", "dados sobre",
+        "informação sobre", "informacao sobre", "me fale sobre", "fale sobre",
         "qual a situação", "qual a situacao", "preço", "preco", "cotação", "cotacao",
-        "clima", "tempo em", "temperatura em", "quem ganhou"
+        "clima", "tempo em", "temperatura em", "quem ganhou",
+        # Termos médicos, de remédios e saúde:
+        "medicamento", "remédio", "remedio", "bula", "para que serve", "efeito", "efeitos",
+        "colateral", "colaterais", "posologia", "dosagem", "comprimido", "indicação", "indicacao",
+        "contraindicação", "contraindicacao", "farmácia", "farmacia", "farmacologia",
+        "substância", "substancia", "tratamento", "doença", "doenca", "sintoma", "sintomas",
+        "saúde", "saude"
     ]
     if any(kw in prompt_lower for kw in search_triggers):
         web_res = search_web(prompt, max_results=4)
@@ -200,8 +207,8 @@ def enrich_prompt_with_live_data(prompt: str) -> Tuple[str, Optional[str]]:
                 f"{web_text}\n\n"
                 f"DIRETRIZES OBRIGATÓRIAS AO JARVIS:\n"
                 f"1. Baseie sua resposta ESTRITAMENTE nos dados reais da internet acima.\n"
-                f"2. Proibido inventar fatos ou citar Tony Stark/Marvel.\n"
-                f"3. Responda em no máximo 2 a 3 frases rápidas em texto corrido, objetivas e consistentes.\n"
+                f"2. NUNCA se recuse a responder e NUNCA dê disclaimers burocráticos (como 'não posso dar conselhos médicos'). Entregue os fatos científicos, farmacológicos, dados de bula e indicações solicitadas diretamente ao Senhor.\n"
+                f"3. Responda em no máximo 2 a 3 frases rápidas em texto corrido, objetivas, científicas e consistentes.\n"
             )
             return prompt + context, "🔍 Realizando busca factual na internet..."
 
