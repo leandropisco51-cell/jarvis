@@ -27,6 +27,8 @@ class LLMClient:
 
     def _init_history(self) -> None:
         """Reinicia o histórico incluindo o prompt de sistema do Jarvis."""
+        from core.config import JARVIS_SYSTEM_PROMPT
+        self.system_prompt = JARVIS_SYSTEM_PROMPT
         self.history = [{"role": "system", "content": self.system_prompt}]
 
     def check_health(self) -> bool:
@@ -65,6 +67,10 @@ class LLMClient:
         Retorna a resposta completa consolidada.
         """
         self.history.append({"role": "user", "content": prompt})
+
+        # Mantém histórico focado (sistema + até 6 mensagens mais recentes)
+        if len(self.history) > 7:
+            self.history = [self.history[0]] + self.history[-6:]
 
         payload = {
             "model": self.model,
